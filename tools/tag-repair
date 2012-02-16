@@ -1,0 +1,108 @@
+#!/usr/bin/env perl -w
+
+use strict;
+use warnings;
+
+use lib 'lib',    '../../../lib';
+use lib 'extlib', '../../../extlib';
+use base qw( MT::Tool );
+
+my $check_dupes    = 1;
+my $check_self_n8d = 1;
+my $check_bad_n8d  = 1;
+my $check_no_n8d   = 1;
+
+my $do_repair = 0;
+sub options { ( 'repair' => \$do_repair ) }
+
+sub main {
+    my $class = shift;
+    my ($verbose) = $class->SUPER::main(@_);
+
+    require TagRepair::Util;
+
+    if ($check_dupes) {
+        my @tag_dupes = TagRepair::Util->tag_dupes;
+
+        if ($verbose) {
+            print "\n\n";
+            foreach my $dupes (@tag_dupes) {
+                print scalar @$dupes
+                    . " tags(s) for "
+                    . $dupes->[0]->name . "\n";
+            }
+        }
+        print scalar @tag_dupes . " set(s) of duplicate tags.\n";
+
+    }
+
+    if ($check_self_n8d) {
+        my @self_n8d = TagRepair::Util->tag_n8d;
+
+        if ($verbose) {
+            print "\n\n";
+            foreach my $tag (@self_n8d) {
+                print $tag->name
+                    . " considers itself to be its normalized version.\n";
+            }
+        }
+
+        print scalar @self_n8d
+            . " tag(s) with themselves listed as the normalized version.\n";
+    }
+
+    if ($check_bad_n8d) {
+        my @bad_n8d = TagRepair::Util->tag_bad_n8d;
+
+        if ($verbose) {
+            print "\n\n";
+            foreach my $tags (@bad_n8d) {
+                print "'" . $tags->[0]->name . "' considers ";
+                if ( $tags->[1] ) {
+                    print "'" . $tags->[1]->name . "'";
+                }
+                else {
+                    print "a non-existant tag";
+                }
+                print " to be its normalized version.\n";
+            }
+        }
+
+        print scalar @bad_n8d
+            . " tags(s) with an incorrect normalized version.\n";
+    }
+
+    if ($check_no_n8d) {
+        my @no_n8d = TagRepair::Util->tag_no_n8d;
+
+        if ($verbose) {
+            print "\n\n";
+
+            foreach my $tag (@no_n8d) {
+                print "'"
+                    . $tag->name
+                    . "' is not normalized and has no reference to a normalized tag.\n";
+            }
+        }
+
+        print scalar @no_n8d
+            . " unnormalized tag(s) with no normalized version.\n";
+    }
+
+    if ($do_repair) {
+        print "Repairing..";
+        TagRepair::Util->repair_tag_dupes;
+        print ".";
+        TagRepair::Util->repair_tag_n8d;
+        print ".";
+        TagRepair::Util->repair_bad_n8d;
+        print ".";
+        TagRepair::Util->repaid_no_n8d;
+        print "\n";
+    }
+}
+
+__PACKAGE__->main() unless caller;
+
+1;
+

@@ -1,0 +1,10 @@
+name:           Tag Repair
+description:    A plugin to repair corrupted mt_tag/mt_objecttag tables.  Don't use this unless you know precisely what you're doing.
+version:        0.1.1
+author_name:    Endevver, LLC
+author_link:    http://endevver.com
+plugin_link:    https://github.com/endevver/mt-plugin-tag-repair
+doc_link:       https://github.com/endevver/mt-plugin-tag-repair/blob/master/README.md
+id:             TagRepair
+key:            TagRepair
+
