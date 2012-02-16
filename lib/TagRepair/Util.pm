@@ -3,8 +3,10 @@ package TagRepair::Util;
 use strict;
 use warnings;
 
+use MT::Tag;
+use MT::ObjectTag;
+
 sub tag_dupes {
-    require MT::Tag;
 
     my $iter = MT::Tag->count_group_by(
         undef,
@@ -58,7 +60,6 @@ sub repair_tag_dupe {
         my $good_tag = shift @duped_tags;
         my @bad_ids = map { $_->id } @duped_tags;
 
-        require MT::ObjectTag;
         my $obj_tag_iter
             = MT::ObjectTag->load_iter( { tag_id => \@bad_ids } );
 
@@ -73,16 +74,11 @@ sub repair_tag_dupe {
 }
 
 sub repair_tag_dupes {
-    require MT::Tag;
-    require MT::ObjectTag;
-
     my @dupes = tag_dupes();
     repair_tag_dupe(@$_) foreach @dupes;
 }
 
 sub tag_n8d {
-    require MT::Tag;
-
     MT::Tag->load( { id => \'= tag_n8d_id' } );
 }
 
@@ -98,8 +94,6 @@ sub repair_tag_n8d {
 }
 
 sub tag_bad_n8d {
-    require MT::Tag;
-
     my @bad_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => { not => '0' } } );
     while ( my $tag = $iter->() ) {
@@ -124,8 +118,6 @@ sub repair_bad_n8d {
 }
 
 sub tag_no_n8d {
-    require MT::Tag;
-
     my @no_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => '0' } );
     while ( my $tag = $iter->() ) {
