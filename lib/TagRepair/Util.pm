@@ -7,7 +7,7 @@ use MT::Tag;
 use MT::ObjectTag;
 
 sub tag_dupes {
-
+    my $self = shift;
     my $iter = MT::Tag->count_group_by(
         undef,
         {   group  => ['name'],
@@ -46,6 +46,7 @@ sub tag_dupes {
 }
 
 sub repair_tag_dupe {
+    my $self = shift;
     my (@duped_tags) = @_;
 
     # pick a tag with the lowest id (i.e. the *first* one)
@@ -74,23 +75,26 @@ sub repair_tag_dupe {
 }
 
 sub repair_tag_dupes {
-    my @dupes = tag_dupes();
-    repair_tag_dupe(@$_) foreach @dupes;
+    my $self = shift;
+    my @dupes = $self->tag_dupes();
+    $self->repair_tag_dupe(@$_) foreach @dupes;
 }
 
 sub tag_n8d {
+    my $self = shift;
     MT::Tag->load( { id => \'= tag_n8d_id' } );
 }
 
 sub repair_tag_n8d {
     my $self = shift;
-    my @tags = tag_n8d();
+    my @tags = $self->tag_n8d();
 
     # basic save is enough to fix these
     $self->save_tags_no_cb( @tags );
 }
 
 sub tag_bad_n8d {
+    my $self = shift;
     my @bad_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => { not => '0' } } );
     while ( my $tag = $iter->() ) {
@@ -108,11 +112,12 @@ sub tag_bad_n8d {
 
 sub repair_bad_n8d {
     my $self = shift;
-    my @tags = map { $_->[0] } tag_bad_n8d();
+    my @tags = map { $_->[0] } $self->tag_bad_n8d();
     $self->save_tags_no_cb( @tags );
 }
 
 sub tag_no_n8d {
+    my $self = shift;
     my @no_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => '0' } );
     while ( my $tag = $iter->() ) {
@@ -125,7 +130,7 @@ sub tag_no_n8d {
 
 sub repair_no_n8d {
     my $self = shift;
-    my @tags = tag_no_n8d();
+    my @tags = $self->tag_no_n8d();
     $self->save_tags_no_cb( @tags );
 }
 
