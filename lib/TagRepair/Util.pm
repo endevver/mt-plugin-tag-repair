@@ -90,7 +90,7 @@ sub repair_tag_n8d {
     my @tags = $self->tag_n8d();
 
     # basic save is enough to fix these
-    $self->save_tags_no_cb( @tags );
+    $self->save( @tags );
 }
 
 sub tag_bad_n8d {
@@ -113,7 +113,7 @@ sub tag_bad_n8d {
 sub repair_bad_n8d {
     my $self = shift;
     my @tags = map { $_->[0] } $self->tag_bad_n8d();
-    $self->save_tags_no_cb( @tags );
+    $self->save( @tags );
 }
 
 sub tag_no_n8d {
@@ -131,10 +131,10 @@ sub tag_no_n8d {
 sub repair_no_n8d {
     my $self = shift;
     my @tags = $self->tag_no_n8d();
-    $self->save_tags_no_cb( @tags );
+    $self->save( @tags );
 }
 
-sub save_tags_no_cb {
+sub save {
     my $self = shift;
     my @objs = @_;
     local $MT::CallbacksEnabled = 0;
