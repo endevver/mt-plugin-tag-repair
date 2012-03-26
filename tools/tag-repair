@@ -5,6 +5,8 @@ use warnings;
 
 use lib 'lib',    '../../../lib';
 use lib 'extlib', '../../../extlib';
+use TagRepair::Util;
+
 use base qw( MT::Tool );
 
 my $check_dupes    = 1;
@@ -19,7 +21,6 @@ sub main {
     my $class = shift;
     my ($verbose) = $class->SUPER::main(@_);
 
-    require TagRepair::Util;
 
     if ($check_dupes) {
         my @tag_dupes = TagRepair::Util->tag_dupes;
