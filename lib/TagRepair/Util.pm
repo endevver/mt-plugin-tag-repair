@@ -37,30 +37,34 @@ sub repair_tag_dupes {
 
 sub repair_tag_dupe {
     my $self = shift;
-    my (@duped_tags) = @_;
+    my (@tags) = @_;
 
-    # pick a tag with the lowest id (i.e. the *first* one)
-    @duped_tags = sort { $a->id <=> $b->id } @duped_tags;
+    # The tag with the lowest id (i.e. the *first* one) will be canonical
+    my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
 
+    # Find and modify objecttag records referencing the dupe tags to
+    # so that they reference the canonical tag instead. Once complete
+    # remove the dupe tags altogether.
+    my @dupe_tag_ids = map { $_->id } @dupes;
     {
-
-        # nix callbacks
+        # nix callbacks for the following operations
         local $MT::CallbacksEnabled = 0;
 
-        # find the tag records (i.e. object tags)
-        my $good_tag = shift @duped_tags;
-        my @bad_ids = map { $_->id } @duped_tags;
-
         my $obj_tag_iter
-            = MT::ObjectTag->load_iter( { tag_id => \@bad_ids } );
+            = MT::ObjectTag->load_iter( { tag_id => \@dupe_tag_ids } )
+                or die "Could not load object tag (iter): "
+                     . (MT::ObjectTag->errstr||'UNKNOWN ERROR');
 
         while ( my $obj_tag = $obj_tag_iter->() ) {
-            $obj_tag->tag_id( $good_tag->id );
-            $obj_tag->save;
+            $obj_tag->tag_id( $canon->id );
+            $self->save( $obj_tag );
         }
 
         # kill the bad tags
-        MT::Tag->remove( { id => \@bad_ids } );
+        unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
+            warn sprintf "Error removing MT::Tag records: %s. %s",
+                join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
+        }
     }
 }
 
@@ -116,6 +120,7 @@ sub tag_bad_n8d {
 
         # skip the self-normalized ones
         next if $tag->id == $tag->n8d_id;
+
         my $n8d_tag = MT::Tag->lookup( $tag->n8d_id );
         push @bad_n8d, [ $tag, $n8d_tag ]
             if !$n8d_tag
