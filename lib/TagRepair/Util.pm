@@ -13,9 +13,11 @@ sub save {
     my @objs = @_;
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
-        next if $_->save;
-        warn sprintf "Error saving %s (ID:%d): %s",
-                lc($obj->class_label), $obj->id, $obj->errstr;
+        $_->save
+            or die sprintf "Error saving %s (ID:%d): %s",
+                    lc($obj->class_label),
+                    $obj->id,
+                    ($obj->errstr||'UNKNOWN ERROR');
     }
 }
 
