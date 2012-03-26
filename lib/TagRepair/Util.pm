@@ -128,11 +128,12 @@ sub tag_no_n8d {
     @no_n8d;
 }
 
-sub repaid_no_n8d {
+sub repair_no_n8d {
     my @tags = tag_no_n8d();
     {
         local $MT::CallbacksEnabled = 0;
         $_->save foreach @tags;
     }
 }
+
 1;

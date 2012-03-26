@@ -98,7 +98,7 @@ sub main {
         print ".";
         TagRepair::Util->repair_bad_n8d;
         print ".";
-        TagRepair::Util->repaid_no_n8d;
+        TagRepair::Util->repair_no_n8d;
         print "\n";
     }
 }
