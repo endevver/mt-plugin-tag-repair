@@ -76,22 +76,12 @@ sub repair_tag_dupe {
 
 sub repair_tag_dupes {
     my $self = shift;
-    my @dupes = $self->tag_dupes();
-    $self->repair_tag_dupe(@$_) foreach @dupes;
+    $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
 }
 
-sub tag_n8d {
-    my $self = shift;
-    MT::Tag->load( { id => \'= tag_n8d_id' } );
-}
+sub tag_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
 
-sub repair_tag_n8d {
-    my $self = shift;
-    my @tags = $self->tag_n8d();
-
-    # basic save is enough to fix these
-    $self->save( @tags );
-}
+sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
 
 sub tag_bad_n8d {
     my $self = shift;
@@ -112,8 +102,7 @@ sub tag_bad_n8d {
 
 sub repair_bad_n8d {
     my $self = shift;
-    my @tags = map { $_->[0] } $self->tag_bad_n8d();
-    $self->save( @tags );
+    $self->save( map { $_->[0] } $self->tag_bad_n8d() );
 }
 
 sub tag_no_n8d {
@@ -128,11 +117,7 @@ sub tag_no_n8d {
     @no_n8d;
 }
 
-sub repair_no_n8d {
-    my $self = shift;
-    my @tags = $self->tag_no_n8d();
-    $self->save( @tags );
-}
+sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
 
 sub save {
     my $self = shift;
