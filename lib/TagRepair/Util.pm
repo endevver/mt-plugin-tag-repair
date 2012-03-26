@@ -136,4 +136,15 @@ sub repair_no_n8d {
     }
 }
 
+sub save_tags_no_cb {
+    my $self = shift;
+    my @objs = @_;
+    local $MT::CallbacksEnabled = 0;
+    foreach my $obj ( @objs ) {
+        next if $_->save;
+        warn sprintf "Error saving %s (ID:%d): %s",
+                lc($obj->class_label), $obj->id, $obj->errstr;
+    }
+}
+
 1;
