@@ -6,6 +6,65 @@ use warnings;
 use MT::Tag;
 use MT::ObjectTag;
 
+##################### REPAIR/SAVE METHODS ######################
+
+sub save {
+    my $self = shift;
+    my @objs = @_;
+    local $MT::CallbacksEnabled = 0;
+    foreach my $obj ( @objs ) {
+        next if $_->save;
+        warn sprintf "Error saving %s (ID:%d): %s",
+                lc($obj->class_label), $obj->id, $obj->errstr;
+    }
+}
+
+sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
+
+sub repair_bad_n8d {
+    my $self = shift;
+    $self->save( map { $_->[0] } $self->tag_bad_n8d() );
+}
+
+sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
+
+sub repair_tag_dupes {
+    my $self = shift;
+    $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
+}
+
+sub repair_tag_dupe {
+    my $self = shift;
+    my (@duped_tags) = @_;
+
+    # pick a tag with the lowest id (i.e. the *first* one)
+    @duped_tags = sort { $a->id <=> $b->id } @duped_tags;
+
+    {
+
+        # nix callbacks
+        local $MT::CallbacksEnabled = 0;
+
+        # find the tag records (i.e. object tags)
+        my $good_tag = shift @duped_tags;
+        my @bad_ids = map { $_->id } @duped_tags;
+
+        my $obj_tag_iter
+            = MT::ObjectTag->load_iter( { tag_id => \@bad_ids } );
+
+        while ( my $obj_tag = $obj_tag_iter->() ) {
+            $obj_tag->tag_id( $good_tag->id );
+            $obj_tag->save;
+        }
+
+        # kill the bad tags
+        MT::Tag->remove( { id => \@bad_ids } );
+    }
+}
+
+
+######################### LOAD METHODS #########################
+
 sub tag_dupes {
     my $self = shift;
     my $iter = MT::Tag->count_group_by(
@@ -45,43 +104,7 @@ sub tag_dupes {
     @tag_groups;
 }
 
-sub repair_tag_dupe {
-    my $self = shift;
-    my (@duped_tags) = @_;
-
-    # pick a tag with the lowest id (i.e. the *first* one)
-    @duped_tags = sort { $a->id <=> $b->id } @duped_tags;
-
-    {
-
-        # nix callbacks
-        local $MT::CallbacksEnabled = 0;
-
-        # find the tag records (i.e. object tags)
-        my $good_tag = shift @duped_tags;
-        my @bad_ids = map { $_->id } @duped_tags;
-
-        my $obj_tag_iter
-            = MT::ObjectTag->load_iter( { tag_id => \@bad_ids } );
-
-        while ( my $obj_tag = $obj_tag_iter->() ) {
-            $obj_tag->tag_id( $good_tag->id );
-            $obj_tag->save;
-        }
-
-        # kill the bad tags
-        MT::Tag->remove( { id => \@bad_ids } );
-    }
-}
-
-sub repair_tag_dupes {
-    my $self = shift;
-    $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
-}
-
 sub tag_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
-
-sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
 
 sub tag_bad_n8d {
     my $self = shift;
@@ -100,11 +123,6 @@ sub tag_bad_n8d {
     @bad_n8d;
 }
 
-sub repair_bad_n8d {
-    my $self = shift;
-    $self->save( map { $_->[0] } $self->tag_bad_n8d() );
-}
-
 sub tag_no_n8d {
     my $self = shift;
     my @no_n8d = ();
@@ -115,19 +133,6 @@ sub tag_no_n8d {
     }
 
     @no_n8d;
-}
-
-sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
-
-sub save {
-    my $self = shift;
-    my @objs = @_;
-    local $MT::CallbacksEnabled = 0;
-    foreach my $obj ( @objs ) {
-        next if $_->save;
-        warn sprintf "Error saving %s (ID:%d): %s",
-                lc($obj->class_label), $obj->id, $obj->errstr;
-    }
 }
 
 1;
