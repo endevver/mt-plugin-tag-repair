@@ -90,11 +90,10 @@ sub tag_self_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
 
 =head2 tag_bad_n8d
 
-Find all tags which declare another tag as its normalized version (n8d_id)
-(i.e. not 0 and n8_id != id).  Look up the normalized tag to make sure it
-exists AND it's correct.  If it doesn't, push it onto the return array as an
-array reference with the normalized tag it currently and incorrectly points
-to.
+Find all tags which declare a non-existent or completely unrelated tag as its
+normalized version (n8d_id) (i.e. not 0 and n8_id != id).  This method returns
+and array of array references containing the tag and its incorrect referent
+or undef if the n8d_id points to a non-existent tag.
 
 =cut
 sub tag_bad_n8d {
