@@ -3,8 +3,14 @@
 use strict;
 use warnings;
 
-use lib 'lib',    '../../../lib';
-use lib 'extlib', '../../../extlib';
+BEGIN { $ENV{MT_HOME} or die "MT_HOME environment variable not set ($ENV{MT_HOME})" }
+
+use FindBin qw( $Bin );
+use lib "$Bin/../lib",
+        "$Bin/../extlib",
+        "$ENV{MT_HOME}/lib",
+        "$ENV{MT_HOME}/extlib";
+
 use TagRepair::Util;
 
 use base qw( MT::Tool );
