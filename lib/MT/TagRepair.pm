@@ -81,12 +81,12 @@ sub tag_dupes {
     @tag_groups;
 }
 
-=head2 tag_n8d
+=head2 tag_self_n8d
 
 Find all tags where id and n8d_id are equal.  This should never happen.
 
 =cut
-sub tag_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
+sub tag_self_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
 
 =head2 tag_bad_n8d
 
@@ -156,15 +156,15 @@ sub save {
     }
 }
 
-=head2 repair_tag_n8d
+=head2 repair_tag_self_n8d
 
-Repair tags returned by C<tag_n8d()>
+Repair tags returned by C<tag_self_n8d()>
 
 =cut
-sub repair_tag_n8d {
+sub repair_tag_self_n8d {
     my $self = shift;
     $self->report_header('Repairing self-referential normalization');
-    $self->save( $self->tag_n8d() )
+    $self->save( $self->tag_self_n8d() );
 }
 
 =head2 repair_bad_n8d

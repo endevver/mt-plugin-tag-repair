@@ -54,7 +54,7 @@ sub main {
     }
 
     if ($check_self_n8d) {
-        my @self_n8d = $tagrepair->tag_n8d;
+        my @self_n8d = $tagrepair->tag_self_n8d;
 
         if ($verbose) {
             print "\n\n";
@@ -110,7 +110,7 @@ sub main {
         print "Repairing..";
         $tagrepair->repair_tag_dupes();
         print ".";
-        $tagrepair->repair_tag_n8d();
+        $tagrepair->repair_tag_self_n8d();
         print ".";
         $tagrepair->repair_bad_n8d();
         print ".";
