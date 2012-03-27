@@ -224,7 +224,13 @@ sub repair_tag_dupe {
                 or die "Could not load object tag (iter): "
                      . (MT::ObjectTag->errstr||'UNKNOWN ERROR');
 
+        $self->report('Consolidating objecttag records for tag IDs: %d',
+                        join(', ', @dupe_tag_ids) );
         while ( my $obj_tag = $obj_tag_iter->() ) {
+            $self->report(
+                'Altering tag_id value for objecttag %d from %d to %d',
+                $obj_tag->id, $obj_tag->tag_id, $canon->id
+            );
             $obj_tag->tag_id( $canon->id );
             $self->save( $obj_tag );
         }
