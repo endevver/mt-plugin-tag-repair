@@ -11,7 +11,7 @@ use lib "$Bin/../lib",
         "$ENV{MT_HOME}/lib",
         "$ENV{MT_HOME}/extlib";
 
-use TagRepair::Util;
+use MT::TagRepair;
 
 use base qw( MT::Tool );
 

@@ -1,8 +1,8 @@
-package TagRepair::Util;
+package MT::TagRepair;
 
 =head1 NAME
 
-TagRepair::Util - Utility methods for repairing MT::Tag objects
+MT::TagRepair - A repair object for corrupted MT::Tag objects
 
 =cut
 use strict;
