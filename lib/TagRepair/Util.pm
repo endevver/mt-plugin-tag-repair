@@ -158,7 +158,11 @@ sub save {
 Repair tags returned by C<tag_n8d()>
 
 =cut
-sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
+sub repair_tag_n8d {
+    my $self = shift;
+    $self->report_header('Repairing self-referential normalization');
+    $self->save( $self->tag_n8d() )
+}
 
 =head2 repair_bad_n8d
 
@@ -169,6 +173,7 @@ object.
 =cut
 sub repair_bad_n8d {
     my $self = shift;
+    $self->report_header('Repairing tags which incorrectly declare normalization');
     $self->save( map { $_->[0] } $self->tag_bad_n8d() );
 }
 
@@ -177,7 +182,10 @@ sub repair_bad_n8d {
 Repair tags returned by C<tag_no_n8d()>
 
 =cut
-sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
+sub repair_no_n8d { 
+    my $self = shift;
+    $self->report_header('Repairing duplicate tags');
+    $self->save( $self->tag_no_n8d() ) }
 
 =head2 repair_tag_dupes
 
@@ -187,6 +195,7 @@ references.
 =cut
 sub repair_tag_dupes {
     my $self = shift;
+    $self->report_header('Repairing duplicate tags');
     $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
 }
 
