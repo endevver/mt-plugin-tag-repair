@@ -11,106 +11,11 @@ use warnings;
 use MT::Tag;
 use MT::ObjectTag;
 
-##################### REPAIR/SAVE METHODS ######################
-
 =head1 METHODS
 
-=head2 save
-
-This save method takes one or more MT::Object subclass instances and saves
-them with MT callbacks disabled.  On error, the method dies with an
-informative error message.
-
 =cut
-sub save {
-    my $self = shift;
-    my @objs = @_;
-    local $MT::CallbacksEnabled = 0;
-    foreach my $obj ( @objs ) {
-        $_->save
-            or die sprintf "Error saving %s (ID:%d): %s",
-                    lc($obj->class_label),
-                    $obj->id,
-                    ($obj->errstr||'UNKNOWN ERROR');
-    }
-}
 
-=head2 repair_tag_n8d
-
-Repair tags returned by C<tag_n8d()>
-
-=cut
-sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
-
-=head2 repair_bad_n8d
-
-Repair tags returned by C<tag_bad_n8d()>. The method returns an array of
-array references where the first element in each array reference is a tag
-object.
-
-=cut
-sub repair_bad_n8d {
-    my $self = shift;
-    $self->save( map { $_->[0] } $self->tag_bad_n8d() );
-}
-
-=head2 repair_no_n8d
-
-Repair tags returned by C<tag_no_n8d()>
-
-=cut
-sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
-
-=head2 repair_tag_dupes
-
-Repairs duplicate tags which are returned from C<tag_dupes()> as array
-references.
-
-=cut
-sub repair_tag_dupes {
-    my $self = shift;
-    $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
-}
-
-=head2 repair_tag_dupe
-
-Repair a single set of duplicate tags.  We do this by consolidating them into
-the tag with the lowest ID (the canonical tag).
-
-Because we're disabling callbacks, we have to adjust the ObjectTag records of
-the duplicates to point to the canonical before removing the duplicate tag
-objects.
-
-=cut
-sub repair_tag_dupe {
-    my $self = shift;
-    my (@tags) = @_;
-
-    my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
-
-    my @dupe_tag_ids = map { $_->id } @dupes;
-    {
-        local $MT::CallbacksEnabled = 0;
-
-        my $obj_tag_iter
-            = MT::ObjectTag->load_iter( { tag_id => \@dupe_tag_ids } )
-                or die "Could not load object tag (iter): "
-                     . (MT::ObjectTag->errstr||'UNKNOWN ERROR');
-
-        while ( my $obj_tag = $obj_tag_iter->() ) {
-            $obj_tag->tag_id( $canon->id );
-            $self->save( $obj_tag );
-        }
-
-        unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
-            warn sprintf "Error removing MT::Tag records: %s. %s",
-                join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
-        }
-    }
-}
-
-
-######################### LOAD METHODS #########################
+###################### TAG SEARCH METHODS ######################
 
 =head2 tag_dupes
 
@@ -212,6 +117,102 @@ sub tag_no_n8d {
     }
 
     @no_n8d;
+}
+
+##################### REPAIR/SAVE METHODS ######################
+
+=head2 save
+
+This save method takes one or more MT::Object subclass instances and saves
+them with MT callbacks disabled.  On error, the method dies with an
+informative error message.
+
+=cut
+sub save {
+    my $self = shift;
+    my @objs = @_;
+    local $MT::CallbacksEnabled = 0;
+    foreach my $obj ( @objs ) {
+        $_->save
+            or die sprintf "Error saving %s (ID:%d): %s",
+                    lc($obj->class_label),
+                    $obj->id,
+                    ($obj->errstr||'UNKNOWN ERROR');
+    }
+}
+
+=head2 repair_tag_n8d
+
+Repair tags returned by C<tag_n8d()>
+
+=cut
+sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
+
+=head2 repair_bad_n8d
+
+Repair tags returned by C<tag_bad_n8d()>. The method returns an array of
+array references where the first element in each array reference is a tag
+object.
+
+=cut
+sub repair_bad_n8d {
+    my $self = shift;
+    $self->save( map { $_->[0] } $self->tag_bad_n8d() );
+}
+
+=head2 repair_no_n8d
+
+Repair tags returned by C<tag_no_n8d()>
+
+=cut
+sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
+
+=head2 repair_tag_dupes
+
+Repairs duplicate tags which are returned from C<tag_dupes()> as array
+references.
+
+=cut
+sub repair_tag_dupes {
+    my $self = shift;
+    $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
+}
+
+=head2 repair_tag_dupe
+
+Repair a single set of duplicate tags.  We do this by consolidating them into
+the tag with the lowest ID (the canonical tag).
+
+Because we're disabling callbacks, we have to adjust the ObjectTag records of
+the duplicates to point to the canonical before removing the duplicate tag
+objects.
+
+=cut
+sub repair_tag_dupe {
+    my $self = shift;
+    my (@tags) = @_;
+
+    my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
+
+    my @dupe_tag_ids = map { $_->id } @dupes;
+    {
+        local $MT::CallbacksEnabled = 0;
+
+        my $obj_tag_iter
+            = MT::ObjectTag->load_iter( { tag_id => \@dupe_tag_ids } )
+                or die "Could not load object tag (iter): "
+                     . (MT::ObjectTag->errstr||'UNKNOWN ERROR');
+
+        while ( my $obj_tag = $obj_tag_iter->() ) {
+            $obj_tag->tag_id( $canon->id );
+            $self->save( $obj_tag );
+        }
+
+        unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
+            warn sprintf "Error removing MT::Tag records: %s. %s",
+                join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
+        }
+    }
 }
 
 1;
