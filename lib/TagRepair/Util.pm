@@ -143,6 +143,8 @@ sub save {
     my @objs = @_;
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
+        $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
+        next if $ENV{TAGREPAIR_DRYRUN};
         $obj->save
             or die sprintf "Error saving %s (ID:%d): %s",
                     lc($obj->class_label),
