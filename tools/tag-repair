@@ -34,7 +34,7 @@ sub main {
     my ($verbose) = $class->SUPER::main(@_);
 
     my $tagrepair
-        = MT::TagRepair->new( verbose => $verbose, dryrun => $dryrun );
+        = MT::TagRepair->new({ verbose => $verbose, dryrun => $dryrun });
 
     $do_repair++ if $dryrun;
 
@@ -108,13 +108,13 @@ sub main {
 
     if ( $do_repair ) {
         print "Repairing..";
-        $tagrepair->repair_tag_dupes;
+        $tagrepair->repair_tag_dupes();
         print ".";
-        $tagrepair->repair_tag_n8d;
+        $tagrepair->repair_tag_n8d();
         print ".";
-        $tagrepair->repair_bad_n8d;
+        $tagrepair->repair_bad_n8d();
         print ".";
-        $tagrepair->repair_no_n8d;
+        $tagrepair->repair_no_n8d();
         print "\n";
     }
 }
