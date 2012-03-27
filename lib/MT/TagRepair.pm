@@ -109,7 +109,7 @@ sub tag_bad_n8d {
         my $n8d_tag = MT::Tag->lookup( $tag->n8d_id );
         push @bad_n8d, [ $tag, $n8d_tag ]
             if !$n8d_tag
-                || MT::Tag->normalize( $tag->name ) ne $n8d_tag->name;
+                || $tag->normalize ne $n8d_tag->name;
     }
 
     @bad_n8d;
@@ -126,8 +126,7 @@ sub tag_no_n8d {
     my @no_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => '0' } );
     while ( my $tag = $iter->() ) {
-        my $n8d = MT::Tag->normalize( $tag->name );
-        push @no_n8d, $tag if $tag->name ne $n8d;
+        push @no_n8d, $tag unless $tag->name eq $tag->normalize;
     }
 
     @no_n8d;
