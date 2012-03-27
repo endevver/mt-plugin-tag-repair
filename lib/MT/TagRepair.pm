@@ -56,7 +56,7 @@ sub tag_dupes {
     while ( my ( $count, $name ) = $iter->() ) {
         next unless $count > 1;         # Skip groups with only 1 tag (good!) 
 
-        # Iterate through all tags with current $name
+        # Iterate through all tags with current $name (case-insensitive)
         foreach my $tag ( MT::Tag->load( { name => $name } )) {
             next if $duped{ $tag->name }++;
 
@@ -64,7 +64,7 @@ sub tag_dupes {
             # FIXME huh?  Why isn't $count "real"? NEEDS DOCUMENTATION
             my $true_count = MT::Tag->count(
                 { name => $tag->name },
-                { binary => { name => 1 } },    # Case-insensitive
+                { binary => { name => 1 } },    # Case-sensitive
             );
 
             next unless $true_count > 1;  # Skip name if only...errr...1 tag
