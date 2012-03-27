@@ -20,25 +20,26 @@ my $check_self_n8d = 1;
 my $check_bad_n8d  = 1;
 my $check_no_n8d   = 1;
 
-my $do_repair = 0;
-
-$ENV{TAGREPAIR_DRYRUN} = 0;
+my $do_repair = my $dryrun = 0;
 
 sub options {
     (
         'repair' => \$do_repair,
-        'dryrun' => \$ENV{TAGREPAIR_DRYRUN},
+        'dryrun' => \$dryrun,
     )
 }
 
 sub main {
     my $class = shift;
-    my ($verbose) = $ENV{TAGREPAIR_VERBOSE} = $class->SUPER::main(@_);
+    my ($verbose) = $class->SUPER::main(@_);
 
+    my $tagrepair
+        = MT::TagRepair->new( verbose => $verbose, dryrun => $dryrun );
 
+    $do_repair++ if $dryrun;
 
     if ($check_dupes) {
-        my @tag_dupes = TagRepair::Util->tag_dupes;
+        my @tag_dupes = $tagrepair->tag_dupes;
 
         if ($verbose) {
             print "\n\n";
@@ -53,7 +54,7 @@ sub main {
     }
 
     if ($check_self_n8d) {
-        my @self_n8d = TagRepair::Util->tag_n8d;
+        my @self_n8d = $tagrepair->tag_n8d;
 
         if ($verbose) {
             print "\n\n";
@@ -68,7 +69,7 @@ sub main {
     }
 
     if ($check_bad_n8d) {
-        my @bad_n8d = TagRepair::Util->tag_bad_n8d;
+        my @bad_n8d = $tagrepair->tag_bad_n8d;
 
         if ($verbose) {
             print "\n\n";
@@ -89,7 +90,7 @@ sub main {
     }
 
     if ($check_no_n8d) {
-        my @no_n8d = TagRepair::Util->tag_no_n8d;
+        my @no_n8d = $tagrepair->tag_no_n8d;
 
         if ($verbose) {
             print "\n\n";
@@ -105,15 +106,15 @@ sub main {
             . " unnormalized tag(s) with no normalized version.\n";
     }
 
-    if ( $ENV{TAGREPAIR_DRYRUN} || $do_repair ) {
+    if ( $do_repair ) {
         print "Repairing..";
-        TagRepair::Util->repair_tag_dupes;
+        $tagrepair->repair_tag_dupes;
         print ".";
-        TagRepair::Util->repair_tag_n8d;
+        $tagrepair->repair_tag_n8d;
         print ".";
-        TagRepair::Util->repair_bad_n8d;
+        $tagrepair->repair_bad_n8d;
         print ".";
-        TagRepair::Util->repair_no_n8d;
+        $tagrepair->repair_no_n8d;
         print "\n";
     }
 }
