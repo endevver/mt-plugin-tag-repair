@@ -235,8 +235,11 @@ sub repair_tag_dupe {
             $self->save( $obj_tag );
         }
 
+        $self->report( 'Removing MT::Tag records: %s',
+                        join(', ', @dupe_tag_ids) );
+        next if $ENV{TAGREPAIR_DRYRUN};
         unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
-            warn sprintf "Error removing MT::Tag records: %s. %s",
+            warn sprintf "Error removing MT::Tag record(s): %s. %s",
                 join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
         }
     }
