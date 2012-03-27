@@ -10,7 +10,7 @@ use warnings;
 
 use MT::Tag;
 use MT::ObjectTag;
-use Class::Accessor::Fast;
+use base qw( Class::Accessor::Fast );
 
 __PACKAGE__->mk_accessors(qw( verbose dryrun ));
 
