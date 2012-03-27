@@ -33,7 +33,8 @@ sub options {
 
 sub main {
     my $class = shift;
-    my ($verbose) = $class->SUPER::main(@_);
+    my ($verbose) = $ENV{TAGREPAIR_VERBOSE} = $class->SUPER::main(@_);
+
 
 
     if ($check_dupes) {
