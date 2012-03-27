@@ -21,11 +21,12 @@ __PACKAGE__->mk_accessors(qw( verbose dryrun ));
 sub report {
     my $self = shift;
     my $msg  = shift;
-    $ENV{TAGREPAIR_VERBOSE} and printf "$msg\n", @_;
+    $self->verbose and printf "$msg\n", @_;
 }
 
 sub report_header {
-    $ENV{TAGREPAIR_VERBOSE} and shift()->report( "\n\n###### %s\n\n", shift());
+    my $self = shift;
+    $self->verbose and $self->report( "\n\n###### %s\n\n", shift());
 }
 
 ###################### TAG SEARCH METHODS ######################
@@ -147,7 +148,7 @@ sub save {
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
         $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
-        next if $ENV{TAGREPAIR_DRYRUN};
+        next if $self->dryrun;
         $obj->save
             or die sprintf "Error saving %s (ID:%d): %s",
                     lc($obj->class_label),
@@ -238,9 +239,10 @@ sub repair_tag_dupe {
             $self->save( $obj_tag );
         }
 
-        $self->report( 'Removing MT::Tag records: %s',
+        $self->report( 'Removing MT::Tag record(s): %s',
                         join(', ', @dupe_tag_ids) );
-        next if $ENV{TAGREPAIR_DRYRUN};
+        next if $self->dryrun;
+
         unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
             warn sprintf "Error removing MT::Tag record(s): %s. %s",
                 join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
