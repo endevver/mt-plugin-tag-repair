@@ -105,7 +105,7 @@ sub main {
             . " unnormalized tag(s) with no normalized version.\n";
     }
 
-    if ($do_repair) {
+    if ( $ENV{TAGREPAIR_DRYRUN} || $do_repair ) {
         print "Repairing..";
         TagRepair::Util->repair_tag_dupes;
         print ".";
