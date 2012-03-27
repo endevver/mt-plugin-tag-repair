@@ -218,6 +218,8 @@ sub repair_tag_dupe {
 
     my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
 
+    $self->report('Repairing %d duplicates for tag "%s" (ID:%d)',
+                    scalar @dupes, $canon->name, $canon->id );
     my @dupe_tag_ids = map { $_->id } @dupes;
     {
         local $MT::CallbacksEnabled = 0;
