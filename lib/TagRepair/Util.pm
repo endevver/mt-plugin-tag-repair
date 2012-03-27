@@ -143,7 +143,7 @@ sub save {
     my @objs = @_;
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
-        $_->save
+        $obj->save
             or die sprintf "Error saving %s (ID:%d): %s",
                     lc($obj->class_label),
                     $obj->id,
