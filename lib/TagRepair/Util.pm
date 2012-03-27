@@ -15,6 +15,16 @@ use MT::ObjectTag;
 
 =cut
 
+sub report {
+    my $self = shift;
+    my $msg  = shift;
+    $ENV{TAGREPAIR_VERBOSE} and printf "$msg\n", @_;
+}
+
+sub report_header {
+    $ENV{TAGREPAIR_VERBOSE} and shift()->report( "\n\n###### %s\n\n", shift());
+}
+
 ###################### TAG SEARCH METHODS ######################
 
 =head2 tag_dupes
