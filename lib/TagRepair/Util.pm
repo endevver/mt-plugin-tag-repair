@@ -1,5 +1,10 @@
 package TagRepair::Util;
 
+=head1 NAME
+
+TagRepair::Util - Utility methods for repairing MT::Tag objects
+
+=cut
 use strict;
 use warnings;
 
@@ -8,6 +13,15 @@ use MT::ObjectTag;
 
 ##################### REPAIR/SAVE METHODS ######################
 
+=head1 METHODS
+
+=head2 save
+
+This save method takes one or more MT::Object subclass instances and saves
+them with MT callbacks disabled.  On error, the method dies with an
+informative error message.
+
+=cut
 sub save {
     my $self = shift;
     my @objs = @_;
@@ -21,33 +35,61 @@ sub save {
     }
 }
 
+=head2 repair_tag_n8d
+
+Repair tags returned by C<tag_n8d()>
+
+=cut
 sub repair_tag_n8d { $_[0]->save( $_[0]->tag_n8d() ) }
 
+=head2 repair_bad_n8d
+
+Repair tags returned by C<tag_bad_n8d()>. The method returns an array of
+array references where the first element in each array reference is a tag
+object.
+
+=cut
 sub repair_bad_n8d {
     my $self = shift;
     $self->save( map { $_->[0] } $self->tag_bad_n8d() );
 }
 
+=head2 repair_no_n8d
+
+Repair tags returned by C<tag_no_n8d()>
+
+=cut
 sub repair_no_n8d { $_[0]->save( $_[0]->tag_no_n8d() ) }
 
+=head2 repair_tag_dupes
+
+Repairs duplicate tags which are returned from C<tag_dupes()> as array
+references.
+
+=cut
 sub repair_tag_dupes {
     my $self = shift;
     $self->repair_tag_dupe(@$_) foreach $self->tag_dupes();
 }
 
+=head2 repair_tag_dupe
+
+Repair a single set of duplicate tags.  We do this by consolidating them into
+the tag with the lowest ID (the canonical tag).
+
+Because we're disabling callbacks, we have to adjust the ObjectTag records of
+the duplicates to point to the canonical before removing the duplicate tag
+objects.
+
+=cut
 sub repair_tag_dupe {
     my $self = shift;
     my (@tags) = @_;
 
-    # The tag with the lowest id (i.e. the *first* one) will be canonical
     my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
 
-    # Find and modify objecttag records referencing the dupe tags to
-    # so that they reference the canonical tag instead. Once complete
-    # remove the dupe tags altogether.
     my @dupe_tag_ids = map { $_->id } @dupes;
     {
-        # nix callbacks for the following operations
         local $MT::CallbacksEnabled = 0;
 
         my $obj_tag_iter
@@ -60,7 +102,6 @@ sub repair_tag_dupe {
             $self->save( $obj_tag );
         }
 
-        # kill the bad tags
         unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
             warn sprintf "Error removing MT::Tag records: %s. %s",
                 join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
@@ -71,33 +112,44 @@ sub repair_tag_dupe {
 
 ######################### LOAD METHODS #########################
 
+=head2 tag_dupes
+
+Find all tags which have the same name (case-insensitive).
+
+=cut
 sub tag_dupes {
     my $self = shift;
+
+    # Select tag names, grouped and ordered by number of tags with that name
     my $iter = MT::Tag->count_group_by(
         undef,
         {   group  => ['name'],
-            binary => { name => 1 },
+            binary => { name => 1 },     # Turns off case sensitivity
             sort   => [
                 { column => 'count(*)', desc => 'DESC' },
                 { column => 'name' }
             ]
         }
     );
+
     my @tag_groups = ();
     my %duped      = ();
     while ( my ( $count, $name ) = $iter->() ) {
-        next unless $count > 1;
+        next unless $count > 1;         # Skip groups with only 1 tag (good!) 
 
-        # check for other potential dupes
-        # use a non-binary search to get all the combos
-        my @potential_dupes = MT::Tag->load( { name => $name } );
-        foreach my $tag (@potential_dupes) {
+        # Iterate through all tags with current $name
+        foreach my $tag ( MT::Tag->load( { name => $name } )) {
             next if $duped{ $tag->name }++;
 
-            # get the REAL count
-            my $true_count = MT::Tag->count( { name => $tag->name },
-                { binary => { name => 1 } } );
-            next unless $true_count > 1;
+            # get the REAL count.
+            # FIXME huh?  Why isn't $count "real"? NEEDS DOCUMENTATION
+            my $true_count = MT::Tag->count(
+                { name => $tag->name },
+                { binary => { name => 1 } },    # Case-insensitive
+            );
+
+            next unless $true_count > 1;  # Skip name if only...errr...1 tag
+
             push @tag_groups,
                 [
                 MT::Tag->load(
@@ -110,8 +162,22 @@ sub tag_dupes {
     @tag_groups;
 }
 
+=head2 tag_n8d
+
+Find all tags where id and n8d_id are equal.  This should never happen.
+
+=cut
 sub tag_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
 
+=head2 tag_bad_n8d
+
+Find all tags which declare another tag as its normalized version (n8d_id)
+(i.e. not 0 and n8_id != id).  Look up the normalized tag to make sure it
+exists AND it's correct.  If it doesn't, push it onto the return array as an
+array reference with the normalized tag it currently and incorrectly points
+to.
+
+=cut
 sub tag_bad_n8d {
     my $self = shift;
     my @bad_n8d = ();
@@ -130,6 +196,12 @@ sub tag_bad_n8d {
     @bad_n8d;
 }
 
+=head2 tag_no_n8d
+
+Find all tags which declare themselves as the normalized version
+(n8d_id = 0) but whose name isn't normalized.
+
+=cut
 sub tag_no_n8d {
     my $self = shift;
     my @no_n8d = ();
