@@ -21,7 +21,15 @@ my $check_bad_n8d  = 1;
 my $check_no_n8d   = 1;
 
 my $do_repair = 0;
-sub options { ( 'repair' => \$do_repair ) }
+
+$ENV{TAGREPAIR_DRYRUN} = 0;
+
+sub options {
+    (
+        'repair' => \$do_repair,
+        'dryrun' => \$ENV{TAGREPAIR_DRYRUN},
+    )
+}
 
 sub main {
     my $class = shift;
