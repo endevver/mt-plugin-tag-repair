@@ -21,13 +21,30 @@ __PACKAGE__->mk_accessors(qw( verbose dryrun ));
 
 =cut
 
+=head2 CASE_SENSITIVE_LOAD
+
+Constant method which returns the arguments necessary to make MT::Object
+loads case-sensitive.  This is purely for convenience because the syntax
+is ugly and arcane.
+
+=cut
 sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
 
+=head2 report
+
+(VERBOSE ONLY) This method is responsible for reporting progress
+
+=cut
 sub report {
     my $self = shift;
     $self->verbose and printf shift()."\n", @_;
 }
 
+=head2 report_header
+
+(VERBOSE ONLY) This method formats and outputs progress report headers
+
+=cut
 sub report_header {
     my $self = shift;
     $self->verbose and $self->report( "\n\n###### %s\n\n", shift());
