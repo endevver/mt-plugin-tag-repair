@@ -25,8 +25,7 @@ sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
 
 sub report {
     my $self = shift;
-    my $msg  = shift;
-    $self->verbose and printf "$msg\n", @_;
+    $self->verbose and printf shift()."\n", @_;
 }
 
 sub report_header {
