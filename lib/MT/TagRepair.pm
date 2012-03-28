@@ -7,12 +7,15 @@ MT::TagRepair - A repair object for corrupted MT::Tag objects
 =cut
 use strict;
 use warnings;
+use Data::Dumper;
 
 use MT::Tag;
 use MT::ObjectTag;
+
 use base qw( Class::Accessor::Fast );
 
 __PACKAGE__->mk_accessors(qw( verbose dryrun ));
+
 
 =head1 METHODS
 
@@ -60,7 +63,6 @@ sub tag_dupes {
 
         # Iterate through all tags with current $name (case-insensitive)
         foreach my $tag ( MT::Tag->load( { name => $name } )) {
-            next if $duped{ $tag->name }++;
 
             next if $duped{ $tag->name }++;    # Don't reprocess the dupes
 
