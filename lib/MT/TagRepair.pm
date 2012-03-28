@@ -151,12 +151,13 @@ sub save {
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
         $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
-        next if $self->dryrun;
-        $obj->save
-            or die sprintf "Error saving %s (ID:%d): %s",
-                    lc($obj->class_label),
-                    $obj->id,
-                    ($obj->errstr||'UNKNOWN ERROR');
+        unless ( $self->dryrun ) {
+            $obj->save
+                or die sprintf "Error saving %s (ID:%d): %s",
+                        lc($obj->class_label),
+                        $obj->id,
+                        ($obj->errstr||'UNKNOWN ERROR');
+        }
     }
 }
 
