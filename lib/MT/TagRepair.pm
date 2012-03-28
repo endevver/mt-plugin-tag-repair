@@ -68,19 +68,14 @@ sub tag_dupes {
             # Get the count of tags which match this tag's name in a
             # CASE-SENSITIVE fashion since case variants are not considered
             # duplicates
-            my $identical = MT::Tag->count(
-                { name => $tag->name },
-                { CASE_SENSITIVE_LOAD() },
-            );
+            my $identical = MT::Tag->count( { name => $tag->name },
+                                            { CASE_SENSITIVE_LOAD() } );
 
             if ( $identical ) {
-                push @tag_groups,
-                    [
-                    MT::Tag->load(
-                        { name   => $tag->name },
-                        { CASE_SENSITIVE_LOAD() },
-                    )
-                    ];
+                push @tag_groups, [
+                    MT::Tag->load({ name => $tag->name    },
+                                  { CASE_SENSITIVE_LOAD() } )
+                ];
             }
         }
     }
@@ -108,15 +103,14 @@ sub tag_bad_n8d {
     my $iter = MT::Tag->load_iter( { n8d_id => { not => '0' } } );
     while ( my $tag = $iter->() ) {
 
-        # skip the self-normalized ones
+        # Self-normalized tags are dealt with in tag_self_n8d()
         next if $tag->id == $tag->n8d_id;
 
         my $n8d_tag = MT::Tag->lookup( $tag->n8d_id );
         push @bad_n8d, [ $tag, $n8d_tag ]
-            if !$n8d_tag
-                || $tag->normalize ne $n8d_tag->name;
+            if ! $n8d_tag
+            or $tag->normalize ne $n8d_tag->name;
     }
-
     @bad_n8d;
 }
 
@@ -131,7 +125,8 @@ sub tag_no_n8d {
     my @no_n8d = ();
     my $iter = MT::Tag->load_iter( { n8d_id => '0' } );
     while ( my $tag = $iter->() ) {
-        push @no_n8d, $tag unless $tag->name eq $tag->normalize;
+        push @no_n8d, $tag
+            unless $tag->name eq $tag->normalize;
     }
 
     @no_n8d;
