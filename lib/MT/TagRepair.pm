@@ -9,6 +9,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 
+use Carp qw( croak cluck confess carp );
 use MT::Tag;
 use MT::ObjectTag;
 
