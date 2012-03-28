@@ -50,6 +50,29 @@ sub report_header {
     $self->verbose and $self->report( "\n\n###### %s\n\n", shift());
 }
 
+=head2 save
+
+This save method takes one or more MT::Object subclass instances and saves
+them with MT callbacks disabled.  On error, the method dies with an
+informative error message.
+
+=cut
+sub save {
+    my $self = shift;
+    my @objs = @_;
+    local $MT::CallbacksEnabled = 0;
+    foreach my $obj ( @objs ) {
+        $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
+        unless ( $self->dryrun ) {
+            $obj->save
+                or die sprintf "Error saving %s (ID:%d): %s",
+                        lc($obj->class_label),
+                        $obj->id,
+                        ($obj->errstr||'UNKNOWN ERROR');
+        }
+    }
+}
+
 ###################### TAG SEARCH METHODS ######################
 
 =head2 tag_dupes
@@ -151,28 +174,6 @@ sub tag_no_n8d {
 
 ##################### REPAIR/SAVE METHODS ######################
 
-=head2 save
-
-This save method takes one or more MT::Object subclass instances and saves
-them with MT callbacks disabled.  On error, the method dies with an
-informative error message.
-
-=cut
-sub save {
-    my $self = shift;
-    my @objs = @_;
-    local $MT::CallbacksEnabled = 0;
-    foreach my $obj ( @objs ) {
-        $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
-        unless ( $self->dryrun ) {
-            $obj->save
-                or die sprintf "Error saving %s (ID:%d): %s",
-                        lc($obj->class_label),
-                        $obj->id,
-                        ($obj->errstr||'UNKNOWN ERROR');
-        }
-    }
-}
 
 =head2 repair_tag_self_n8d
 
