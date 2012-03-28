@@ -18,6 +18,8 @@ __PACKAGE__->mk_accessors(qw( verbose dryrun ));
 
 =cut
 
+sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
+
 sub report {
     my $self = shift;
     my $msg  = shift;
@@ -43,11 +45,11 @@ sub tag_dupes {
     my $iter = MT::Tag->count_group_by(
         undef,
         {   group  => ['name'],
-            binary => { name => 1 },     # Turns off case sensitivity
             sort   => [
                 { column => 'count(*)', desc => 'DESC' },
                 { column => 'name' }
             ]
+            CASE_SENSITIVE_LOAD(),
         }
     );
 
@@ -60,22 +62,25 @@ sub tag_dupes {
         foreach my $tag ( MT::Tag->load( { name => $name } )) {
             next if $duped{ $tag->name }++;
 
-            # get the REAL count.
-            # FIXME huh?  Why isn't $count "real"? NEEDS DOCUMENTATION
-            my $true_count = MT::Tag->count(
+            next if $duped{ $tag->name }++;    # Don't reprocess the dupes
+
+            # Get the count of tags which match this tag's name in a
+            # CASE-SENSITIVE fashion since case variants are not considered
+            # duplicates
+            my $identical = MT::Tag->count(
                 { name => $tag->name },
-                { binary => { name => 1 } },    # Case-sensitive
+                { CASE_SENSITIVE_LOAD() },
             );
 
-            next unless $true_count > 1;  # Skip name if only...errr...1 tag
-
-            push @tag_groups,
-                [
-                MT::Tag->load(
-                    { name   => $tag->name },
-                    { binary => { name => 1 } }
-                )
-                ];
+            if ( $identical ) {
+                push @tag_groups,
+                    [
+                    MT::Tag->load(
+                        { name   => $tag->name },
+                        { CASE_SENSITIVE_LOAD() },
+                    )
+                    ];
+            }
         }
     }
     @tag_groups;
