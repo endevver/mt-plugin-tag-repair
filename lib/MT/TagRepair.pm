@@ -189,6 +189,49 @@ sub remove {
     }
 }
 
+sub throw {
+    my $self = shift;
+    my ($type, $obj, %args) = @_;
+    my $obj_type = lc($obj->class_label);
+
+    my %exceptions = (
+        save_error   => {
+            fatal    => 1,
+            message  => [
+
+                $obj->id  ?  ( 'Error saving %s (ID:%d): %s',
+                               $obj_type, $obj->id, $self->errstr($obj) )
+                          :  ( "Error saving new %s: %s\n%s",
+                                $obj_type, $self->errstr($obj), Dumper($obj) ),
+            ],
+        },
+        remove_error => {
+            fatal    => 1,
+            message  => [ 'Error removing %s (ID:%d): %s',
+                            $obj_type, $obj->id, $self->errstr($obj) ],
+        },
+        load_error   => {
+            fatal    => $args{fatal},
+            message  => [ 'Error loading %s records: %s. Load terms: %s',
+                          $obj, $self->errstr($obj), Dumper($args{terms}) ],
+        },
+    );
+
+    my $exception = $exceptions{$type}
+        or croak "Undefined exception type thrown: $type";
+    my ( $msg, @msg_args ) = @{ $exception->{message} };
+
+    $msg = sprintf( $msg, @msg_args );
+
+    $exception->{fatal} ? croak $msg : carp $msg;
+}
+
+sub errstr {
+    my $self = shift;
+    return shift()->errstr || 'UNKNOWN ERROR';
+}
+
+
 ###################### TAG SEARCH METHODS ######################
 
 =head2 tag_dupes
