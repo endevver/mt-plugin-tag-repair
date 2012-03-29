@@ -44,21 +44,27 @@ sub main {
     $do_repair++ if $dryrun;
 
     if ($check_dupes) {
+        $tagrepair->report_header('Duplicate tags (case-sensitive)');
+
         my @tag_dupes = $tagrepair->tag_dupes;
 
-        if ($verbose) {
-            print "\n\n";
-            foreach my $dupes (@tag_dupes) {
-                print scalar @$dupes
-                    . " tags(s) for "
-                    . $dupes->[0]->name . "\n";
-            }
+        my $dupe_count = 0;
+        $dupe_count += scalar @$_ - 1 foreach @tag_dupes;
+
+        if ($tagrepair->verbose) {
+            $tagrepair->report( '%-6s %s', "Tags", 'Duplicated tag names');
+            $tagrepair->report( '%-6d %s', scalar @$_, $_->[0]->name )
+                foreach @tag_dupes;
         }
-        print scalar @tag_dupes . " set(s) of duplicate tags.\n";
+        printf "%d duplicate tags (%d duped names).\n",
+            $dupe_count, scalar @tag_dupes;
 
     }
 
     if ($check_self_n8d) {
+        $tagrepair->report_header(
+            'Circular (i.e. self-referential) normalization'
+        );
         my @self_n8d = $tagrepair->tag_self_n8d;
 
         if ($verbose) {
@@ -70,10 +76,13 @@ sub main {
         }
 
         print scalar @self_n8d
-            . " tag(s) with themselves listed as the normalized version.\n";
+            . " tag(s) which have a circular, self-referential normalized tag reference.\n";
     }
 
     if ($check_bad_n8d) {
+        $tagrepair->report_header(
+            'Incorrect/non-existent normalization references'
+        );
         my @bad_n8d = $tagrepair->tag_bad_n8d;
 
         if ($verbose) {
@@ -91,10 +100,13 @@ sub main {
         }
 
         print scalar @bad_n8d
-            . " tags(s) with an incorrect normalized version.\n";
+            . " tags(s) which reference a non-existent or incorrect normalized tag.\n";
     }
 
     if ($check_no_n8d) {
+        $tagrepair->report_header(
+            'False declaration of normalization'
+        );
         my @no_n8d = $tagrepair->tag_no_n8d;
 
         if ($verbose) {
@@ -108,11 +120,13 @@ sub main {
         }
 
         print scalar @no_n8d
-            . " unnormalized tag(s) with no normalized version.\n";
+            . " false normalized form declarations by non-normalized tag(s).\n";
     }
 
     if ( $do_repair ) {
-        print "Repairing..";
+        $tagrepair->report_header(
+            'Starting Tag and ObjectTag repair work'
+        );
         $tagrepair->repair_tag_dupes();
         print ".";
         $tagrepair->repair_tag_self_n8d();

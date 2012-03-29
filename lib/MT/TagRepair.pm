@@ -158,13 +158,16 @@ sub save {
     my @objs = @_;
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
-        $self->report( 'Saving %s ID %d', lc($obj->class_label), $obj->id );
+        my $obj_type = lc($obj->class_label);
+        $self->report(
+            $obj->id  ?  ( 'Saving %s ID %d', $obj_type, $obj->id )
+                      :  ( 'Saving new %s %s',
+                            $obj_type,
+                            $obj_type eq 'tag' ? "'".$obj->name."'"
+                                               : Dumper($obj->column_values) )
+        );
         unless ( $self->dryrun ) {
-            $obj->save
-                or die sprintf "Error saving %s (ID:%d): %s",
-                        lc($obj->class_label),
-                        $obj->id,
-                        ($obj->errstr||'UNKNOWN ERROR');
+            $obj->save or $self->throw( save_error => $obj );
         }
     }
 }
@@ -249,7 +252,7 @@ sub tag_dupes {
             sort   => [
                 { column => 'count(*)', desc => 'DESC' },
                 { column => 'name' }
-            ]
+            ],
             CASE_SENSITIVE_LOAD(),
         }
     );
@@ -259,8 +262,9 @@ sub tag_dupes {
     while ( my ( $count, $name ) = $iter->() ) {
         next unless $count > 1;         # Skip groups with only 1 tag (good!) 
 
-        # Iterate through all tags with current $name (case-insensitive)
-        foreach my $tag ( MT::Tag->load( { name => $name } )) {
+        # Load and iterate through all tags with current $name (case-insensitive)
+        my @tags = $self->load( 'MT::Tag', { name => $name } );
+        foreach my $tag ( @tags ) {
 
             next if $duped{ $tag->name }++;    # Don't reprocess the dupes
 
@@ -270,10 +274,10 @@ sub tag_dupes {
             my $identical = MT::Tag->count( { name => $tag->name },
                                             { CASE_SENSITIVE_LOAD() } );
 
-            if ( $identical ) {
+            if ( $identical > 1 ) {
                 push @tag_groups, [
-                    MT::Tag->load({ name => $tag->name    },
-                                  { CASE_SENSITIVE_LOAD() } )
+                    $self->load( 'MT::Tag', { name => $tag->name    },
+                                            { CASE_SENSITIVE_LOAD() }, )
                 ];
             }
         }
@@ -286,7 +290,10 @@ sub tag_dupes {
 Find all tags where id and n8d_id are equal.  This should never happen.
 
 =cut
-sub tag_self_n8d { MT::Tag->load( { id => \'= tag_n8d_id' } ) }
+sub tag_self_n8d {
+    my $self = shift;
+    $self->load( 'MT::Tag', { id => \'= tag_n8d_id' } );
+}
 
 =head2 tag_bad_n8d
 
@@ -303,7 +310,7 @@ sub tag_bad_n8d {
     while ( my $tag = $iter->() ) {
 
         # Self-normalized tags are dealt with in tag_self_n8d()
-        next if $tag->id == $tag->n8d_id;
+        next if $tag->n8d_id and $tag->id == $tag->n8d_id;
 
         my $n8d_tag = MT::Tag->lookup( $tag->n8d_id );
         push @bad_n8d, [ $tag, $n8d_tag ]
@@ -331,8 +338,7 @@ sub tag_no_n8d {
     @no_n8d;
 }
 
-##################### REPAIR/SAVE METHODS ######################
-
+##################### REPAIR METHODS ######################
 
 =head2 repair_tag_self_n8d
 
@@ -342,7 +348,52 @@ Repair tags returned by C<tag_self_n8d()>
 sub repair_tag_self_n8d {
     my $self = shift;
     $self->report_header('Repairing self-referential normalization');
-    $self->save( $self->tag_self_n8d() );
+
+    my @tags;
+    unless ( @tags = $self->tag_self_n8d() ) {
+        $self->report('No tags found in repair_tag_self_n8d');
+        return 0;
+    }
+
+    # Cache the tag data in memory
+    $self->report(
+        'Caching tag values for %d tags before removing them. ID(s): %s',
+        scalar @tags,
+        join(', ', map { $_->id } @tags )
+    );
+    my @tagdata = map { $_->column_values } @tags;
+
+    # Remove the self_n8d tags
+    $self->remove( @tags );
+
+    my %replacement_id;
+    foreach my $data ( @tagdata ) {
+
+        # Get the original tag ID and remove it from the data hash
+        my $old_id = delete $data->{id};
+
+        # Discard the n8d_id since it was incorrect in the first place
+        delete $data->{n8d_id};
+
+        # Create and save a new tag with the old data (minus the tag_id)
+        my $tag = MT::Tag->new();
+        $tag->set_values( $data );
+        $self->save( $tag );
+
+        # Store the new tag ID in a hash, mapped to the old tag ID
+        $replacement_id{$old_id} = $tag->id;
+    }
+
+    # Iteratively load all objecttags referencing the old tag IDs
+    my $otag_iter
+        = MT::ObjectTag->load_iter({ id => [ keys %replacement_id ] });
+
+    # Modify each objecttag replacing the original tag_id value with the
+    # replacement tag's ID
+    while ( my $ot = $otag_iter->() ) {
+        $ot->tag_id( $replacement_id{$ot->tag_id} );
+        $self->save( $ot );
+    }
 }
 
 =head2 repair_bad_n8d
@@ -418,37 +469,52 @@ sub repair_tag_dupe {
 
     my ( $canon, @dupes ) = sort { $a->id <=> $b->id } @tags;
 
-    $self->report('Repairing %d duplicates for tag "%s" (ID:%d)',
+    return unless @dupes;
+
+    $self->report('Repairing %s duplicates of tag "%s" (ID:%s)',
                     scalar @dupes, $canon->name, $canon->id );
     my @dupe_tag_ids = map { $_->id } @dupes;
-    {
-        local $MT::CallbacksEnabled = 0;
 
-        my $obj_tag_iter
-            = MT::ObjectTag->load_iter( { tag_id => \@dupe_tag_ids } )
-                or die "Could not load object tag (iter): "
-                     . (MT::ObjectTag->errstr||'UNKNOWN ERROR');
+    my $load_terms = {
+        tag_id => ( @dupe_tag_ids > 1 ? \@dupe_tag_ids : $dupe_tag_ids[0] )
+    };
+    my $obj_tag_iter = MT::ObjectTag->load_iter( $load_terms )
+        or $self->throw( load_error => 'MT::ObjectTag',
+                         terms      => $load_terms,
+                         fatal      => 1 );
 
-        $self->report('Consolidating objecttag records for tag IDs: %d',
-                        join(', ', @dupe_tag_ids) );
-        while ( my $obj_tag = $obj_tag_iter->() ) {
-            $self->report(
-                'Altering tag_id value for objecttag %d from %d to %d',
-                $obj_tag->id, $obj_tag->tag_id, $canon->id
-            );
-            $obj_tag->tag_id( $canon->id );
-            $self->save( $obj_tag );
-        }
-
-        $self->report( 'Removing MT::Tag record(s): %s',
-                        join(', ', @dupe_tag_ids) );
-        next if $self->dryrun;
-
-        unless ( MT::Tag->remove( { id => \@dupe_tag_ids } ) ) {
-            warn sprintf "Error removing MT::Tag record(s): %s. %s",
-                join(', ', @dupe_tag_ids), (MT::Tag->errstr||'UNKNOWN ERROR')
-        }
+    $self->report('Consolidating objecttag records for tag IDs: %s',
+                    join(', ', @dupe_tag_ids) );
+    while ( my $obj_tag = $obj_tag_iter->() ) {
+        $self->report(
+            'Altering tag_id value for objecttag ID %s from %s to %s',
+            $obj_tag->id, $obj_tag->tag_id, $canon->id
+        );
+        $obj_tag->tag_id( $canon->id );
+        $self->save( $obj_tag );
     }
+
+    $load_terms = {
+        n8d_id => ( @dupe_tag_ids > 1 ? \@dupe_tag_ids : $dupe_tag_ids[0] )
+    };
+    my $tag_iter = MT::Tag->load_iter( $load_terms )
+        or $self->throw( load_error => 'MT::Tag',
+                         terms      => $load_terms,
+                         fatal      => 1 );
+
+    $self->report('Redirecting tags referencing our dupe tags in their n8d_id for tag IDs: %s',
+                    join(', ', @dupe_tag_ids) );
+    while ( my $t = $tag_iter->() ) {
+        $self->report(
+            'Altering n8d_id value for tag ID %s from %s to %s',
+            $t->id, $t->n8d_id, $canon->id
+        );
+        $t->n8d_id( $canon->id );
+        $self->save( $t );
+    }
+
+
+    $self->remove( @dupes );
 }
 
 1;
