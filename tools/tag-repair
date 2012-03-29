@@ -20,10 +20,10 @@ use MT::TagRepair;
 
 use base qw( MT::Tool );
 
-my $check_dupes    = 1;
-my $check_self_n8d = 1;
-my $check_bad_n8d  = 1;
-my $check_no_n8d   = 1;
+my $check_tag_dupes = 1;
+my $check_self_n8d  = 1;
+my $check_bad_n8d   = 1;
+my $check_no_n8d    = 1;
 
 my $do_repair = my $dryrun = 0;
 
@@ -36,106 +36,30 @@ sub options {
 
 sub main {
     my $class = shift;
-    my ($verbose) = $class->SUPER::main(@_);
+    my ($verbose) = $class->SUPER::main(@_) || 0;
 
-    my $tagrepair
-        = MT::TagRepair->new({ verbose => $verbose, dryrun => $dryrun });
+    my @issues = qw( tag_dupes self_n8d bad_n8d no_n8d );
 
-    $do_repair++ if $dryrun;
+    no strict 'refs';
+    my $options = {
+        issues => [ grep { ${\"check_$_"} } @issues ],
+        verbose => $verbose,
+        dryrun  => $dryrun,
+    };
 
-    if ($check_dupes) {
-        $tagrepair->report_header('Duplicate tags (case-sensitive)');
+    # If the user specified either the repair or dryrun flags, then we
+    # are instantiating our repair class, MT::TagRepair::Repair, with
+    # the above options.
+    # Otherwise, we're instantiating our reporter class, MT::TagRepair::Report.
+    my $cmd_class
+        = join( '::', 'MT::TagRepair',
+                      (( $do_repair || $dryrun ) ? 'Repair' : 'Report') );
 
-        my @tag_dupes = $tagrepair->tag_dupes;
-
-        my $dupe_count = 0;
-        $dupe_count += scalar @$_ - 1 foreach @tag_dupes;
-
-        if ($tagrepair->verbose) {
-            $tagrepair->report( '%-6s %s', "Tags", 'Duplicated tag names');
-            $tagrepair->report( '%-6d %s', scalar @$_, $_->[0]->name )
-                foreach @tag_dupes;
-        }
-        printf "%d duplicate tags (%d duped names).\n",
-            $dupe_count, scalar @tag_dupes;
-
-    }
-
-    if ($check_self_n8d) {
-        $tagrepair->report_header(
-            'Circular (i.e. self-referential) normalization'
-        );
-        my @self_n8d = $tagrepair->tag_self_n8d;
-
-        if ($verbose) {
-            print "\n\n";
-            foreach my $tag (@self_n8d) {
-                print $tag->name
-                    . " considers itself to be its normalized version.\n";
-            }
-        }
-
-        print scalar @self_n8d
-            . " tag(s) which have a circular, self-referential normalized tag reference.\n";
-    }
-
-    if ($check_bad_n8d) {
-        $tagrepair->report_header(
-            'Incorrect/non-existent normalization references'
-        );
-        my @bad_n8d = $tagrepair->tag_bad_n8d;
-
-        if ($verbose) {
-            print "\n\n";
-            foreach my $tags (@bad_n8d) {
-                print "'" . $tags->[0]->name . "' considers ";
-                if ( $tags->[1] ) {
-                    print "'" . $tags->[1]->name . "'";
-                }
-                else {
-                    print "a non-existant tag";
-                }
-                print " to be its normalized version.\n";
-            }
-        }
-
-        print scalar @bad_n8d
-            . " tags(s) which reference a non-existent or incorrect normalized tag.\n";
-    }
-
-    if ($check_no_n8d) {
-        $tagrepair->report_header(
-            'False declaration of normalization'
-        );
-        my @no_n8d = $tagrepair->tag_no_n8d;
-
-        if ($verbose) {
-            print "\n\n";
-
-            foreach my $tag (@no_n8d) {
-                print "'"
-                    . $tag->name
-                    . "' is not normalized and has no reference to a normalized tag.\n";
-            }
-        }
-
-        print scalar @no_n8d
-            . " false normalized form declarations by non-normalized tag(s).\n";
-    }
-
-    if ( $do_repair ) {
-        $tagrepair->report_header(
-            'Starting Tag and ObjectTag repair work'
-        );
-        $tagrepair->repair_tag_dupes();
-        print ".";
-        $tagrepair->repair_tag_self_n8d();
-        print ".";
-        $tagrepair->repair_bad_n8d();
-        print ".";
-        $tagrepair->repair_no_n8d();
-        print "\n";
-    }
+    eval "require $cmd_class;";
+    
+    my $process = $cmd_class->new( $options );
+    
+    $process->execute();
 }
 
 __PACKAGE__->main() unless caller;
