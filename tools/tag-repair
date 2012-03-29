@@ -2,14 +2,19 @@
 
 use strict;
 use warnings;
+use Data::Dumper;
+use FindBin qw( $Bin );
 
 BEGIN { $ENV{MT_HOME} or die "MT_HOME environment variable not set ($ENV{MT_HOME})" }
 
-use FindBin qw( $Bin );
 use lib "$Bin/../lib",
         "$Bin/../extlib",
         "$ENV{MT_HOME}/lib",
         "$ENV{MT_HOME}/extlib";
+
+use MT::Log::Log4perl qw(l4mtdump); use Log::Log4perl qw( :resurrect );
+###l4p our $logger = MT::Log::Log4perl->new();
+# ###l4p $logger ||= MT::Log::Log4perl->new(); $logger->trace();
 
 use MT::TagRepair;
 

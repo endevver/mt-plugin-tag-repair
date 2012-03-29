@@ -8,8 +8,11 @@ MT::TagRepair - A repair object for corrupted MT::Tag objects
 use strict;
 use warnings;
 use Data::Dumper;
-
 use Carp qw( croak cluck confess carp );
+
+use MT::Log::Log4perl qw(l4mtdump); use Log::Log4perl qw( :resurrect );
+###l4p our $logger = MT::Log::Log4perl->new();
+
 use MT::Tag;
 use MT::ObjectTag;
 
