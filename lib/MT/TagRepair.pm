@@ -34,24 +34,91 @@ is ugly and arcane.
 =cut
 sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
 
+=head2 output
+
+A method which intelligently prints the output it is provided. The output is
+intelligent because of its variable handling of the input it receives.
+
+Given a B<scalar>, the method acts precisely like the C<print> function:
+
+    $self->output('Hello world');   # Outputs: Hello world
+
+Given an B<array>, the method does the same but joins the array
+elements together with an intervening space:
+
+    $self->output(1..10);           # Outputs: 1 2 3 4 5 6 7 8 9 10
+
+Given an B<array reference>, the method feeds the elements of the array to
+the C<printf> function:
+
+    my @data = ( name => 'Fred', number => '212-555-1212' );
+    $self->output([ 'My %s is %s and my %s is %s', @data ]);
+        # Outputs: My name is Fred and my number is 212-555-1212
+
+Unlike the C<report> method, this method outputs data regardless of the value
+of the C<verbose> property.
+
+=cut
+sub output {
+    my $self  = shift;
+    my @input = @_;
+
+    if (@input == 1 and 'ARRAY' eq ref($_[0]) ) {
+        my $msg = shift @input;
+        printf "$msg\n", map { defined($_) ? $_ : 'UNDEF' } @_;
+    }
+    else {
+        print join(' ', @_)."\n";
+    }
+}
+
+=head2 output_header
+
+This method takes a simple string and outputs it with additional decoration
+suitable for use as a section header.  The decoratin format is defined by the
+C<_header> method.
+
+=cut
+sub output_header {
+    my $self = shift;
+    $self->output( $self->_header(@_) );
+
+}
+
 =head2 report
 
-(VERBOSE ONLY) This method is responsible for reporting progress
+This method is identical to the C<output> method except that it respects the
+verbose setting.  It's generally used for reporting detailed progress of the
+application.
 
 =cut
 sub report {
     my $self = shift;
-    $self->verbose and printf shift()."\n", @_;
+    $self->output(@_) if $self->verbose;
 }
 
 =head2 report_header
 
-(VERBOSE ONLY) This method formats and outputs progress report headers
+This method is the verbose-flag-respecting analog to the C<output_header>
+method.
 
 =cut
 sub report_header {
     my $self = shift;
-    $self->verbose and $self->report( "\n\n###### %s\n\n", shift());
+    $self->report( $self->_header(@_) );
+}
+
+=head2 _header
+
+This method defines and returns the format and additional string decoration
+surrounding the string provided to the C<report_header> and C<output_header>
+methods.
+
+=cut
+sub _header {
+    my $self = shift;
+    return ( "\n\n###### %s ######\n\n", shift() );
+}
 
 =head2 load
 
