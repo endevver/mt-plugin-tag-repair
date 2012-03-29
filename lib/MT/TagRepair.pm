@@ -357,7 +357,7 @@ sub repair_bad_n8d {
     $self->report_header('Repairing tags which incorrectly declare normalization');
 
     my @tags;
-    unless ( @tags = $self->tag_bad_n8d() )
+    unless ( @tags = $self->tag_bad_n8d() ) {
         $self->report('No tags found in repair_bad_n8d');
         return 0;
     }
@@ -376,7 +376,7 @@ sub repair_no_n8d {
     $self->report_header('Repairing duplicate tags');
 
     my @tags;
-    unless ( @tags = $self->tag_no_n8d() )
+    unless ( @tags = $self->tag_no_n8d() ) {
         $self->report('No tags found in repair_no_n8d');
         return 0;
     }
@@ -395,7 +395,7 @@ sub repair_tag_dupes {
     $self->report_header('Repairing duplicate tags');
 
     my @tags;
-    unless ( @tags = $self->tag_dupes() )
+    unless ( @tags = $self->tag_dupes() ) {
         $self->report('No tags found in repair_tag_dupes');
         return 0;
     }
