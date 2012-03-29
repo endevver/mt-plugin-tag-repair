@@ -52,6 +52,31 @@ sub report {
 sub report_header {
     my $self = shift;
     $self->verbose and $self->report( "\n\n###### %s\n\n", shift());
+
+=head2 load
+
+This load method centralizes all of the load actions undertaken by the class
+and, like the C<save> and C<remove> provides consistency and predictability
+for the most used functions.
+
+=cut
+sub load {
+    my $self = shift;
+    my ($class, $terms, $args) = @_;
+    local $MT::CallbacksEnabled = 0;
+
+    my $init_errstr = $class->errstr;
+
+    # $self->report( 'Loading %s records with terms: %s',
+    #                 $class, Dumper($terms) );
+    my @obj = $class->load( $terms, $args );
+
+    @obj and return wantarray ? @obj : shift @obj;
+
+    if ( $class->errstr and $class->errstr ne $init_errstr ) {
+        $self->throw( load_error => $class, terms => $terms, fatal => 1 );
+    }
+    return wantarray ? () : undef;
 }
 
 =head2 save
