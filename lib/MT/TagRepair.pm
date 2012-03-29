@@ -169,6 +169,26 @@ sub save {
     }
 }
 
+=head2 remove
+
+This remove method takes one or more MT::Object subclass instances and removes
+them with MT callbacks disabled.  On error, the method dies with an
+informative error message.
+
+=cut
+sub remove {
+    my $self = shift;
+    my @objs = @_;
+    local $MT::CallbacksEnabled = 0;
+
+    foreach my $obj ( @objs ) {
+        $self->report( 'Removing %s ID %s', lc( $obj->class_label ), $obj->id);
+        unless ( $self->dryrun ) {
+            $obj->remove or $self->throw( remove_error => $obj );
+        }
+    }
+}
+
 ###################### TAG SEARCH METHODS ######################
 
 =head2 tag_dupes
