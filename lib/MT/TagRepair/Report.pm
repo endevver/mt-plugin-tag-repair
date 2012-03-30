@@ -11,97 +11,126 @@ use MT::Log::Log4perl qw(l4mtdump); use Log::Log4perl qw( :resurrect );
 
 sub class_label { 'Report' }
 
-sub execute {
-    my $self = shift;
-    $self->report_header( 'Starting Tag and ObjectTag analysis' );
-    $self->SUPER::execute();
-}
+sub execute { shift()->SUPER::execute() }
 
 sub report_tag_dupes {
     my $self = shift;
+    my $cnt = my @tags = $self->tag_dupes;
 
-    $self->report_header('Duplicate tags (case-sensitive)');
+    $self->report_header(
+        'Duplicate tags' =>
+            (
+                @tags  ?    'The following is a list of tag names which '
+                          . 'are in use by more than one tag using the '
+                          . 'identical case.'
+                       :  '  NO TAGS FOUND IN THIS STATE!!'
+            )
+    );
 
-    my @tag_dupes = $self->tag_dupes;
+    if ( @tags and $self->verbose ) {
 
-    my $dupe_count = 0;
-    $dupe_count += scalar @$_ - 1 foreach @tag_dupes;
+        $self->report([ '%-11s %-20s %s',
+                        '# of tags', 'Tag IDs', 'Duplicated tag names' ]);
 
-    if ( $self->verbose ) {
-        $self->report( '%-6s %s', "Tags", 'Duplicated tag names');
-        $self->report( '%-6d %s', scalar @$_, $_->[0]->name )
-            foreach @tag_dupes;
+        foreach my $tagset ( @tags ) {
+            my $name    = $tagset->[0]->name;
+            my $tag_cnt = scalar @$tagset;
+            my $tag_ids = join( ', ', map { $_->id } @$tagset );
+            $self->report([ '   %-8d %-20s %s',
+                            $tag_cnt, $tag_ids, $name ]);
+        }
     }
-    printf "%d duplicate tags (%d duped names).\n",
-        $dupe_count, scalar @tag_dupes;
+
+    unless ( $self->verbose and ! @tags ) {
+        my $dupe_count = 0;
+        $dupe_count += scalar @$_ - 1 foreach @tags;
+
+        $self->output([ '%d duplicate tags (%d duped names).',
+                            $dupe_count, $cnt ]);
+    }
 }
 
 sub report_self_n8d {
     my $self = shift;
+    my $cnt  = my @tags = $self->tag_self_n8d;
 
     $self->report_header(
-        'Circular (i.e. self-referential) normalization'
+        'Self-referential normalization' =>
+            (
+                @tags  ?    'The following tags have identical ID and '
+                          . 'n8d_id values which should never happen '
+                          . 'and can cause undefined behaviors'
+                       :  '  NO TAGS FOUND IN THIS STATE!!'
+            )
     );
-    my @self_n8d = $self->tag_self_n8d;
 
-    if ( $self->verbose ) {
-        print "\n\n";
-        foreach my $tag (@self_n8d) {
-            print $tag->name
-                . " considers itself to be its normalized version.\n";
-        }
+    if ( @tags and $self->verbose ) {
+        $self->report([ "  %-10s %s", 'Tag ID', 'Name']);
+        $self->report([ "  %-10d %s", $_->id, $_->name ])
+            foreach @tags;
     }
 
-    print scalar @self_n8d
-        . " tag(s) which have a circular, self-referential normalized tag reference.\n";
+    $self->output(
+        "$cnt tag(s) have a self-referential normalized tag reference.")
+      if @tags or ! $self->verbose;
 }
 
 sub report_bad_n8d {
     my $self = shift;
-    
-    $self->report_header(
-        'Incorrect/non-existent normalization references'
-    );
-    my @bad_n8d = $self->tag_bad_n8d;
+    my $cnt  = my @tags = $self->tag_bad_n8d;
 
-    if ( $self->verbose ) {
-        print "\n\n";
-        foreach my $tags (@bad_n8d) {
-            print "'" . $tags->[0]->name . "' considers ";
-            if ( $tags->[1] ) {
-                print "'" . $tags->[1]->name . "'";
-            }
-            else {
-                print "a non-existant tag";
-            }
-            print " to be its normalized version.\n";
+    $self->report_header(
+        'Incorrect normalization references' =>
+            (
+                @tags  ?    'The following $cnt tags refer to a normalized '
+                          . 'tag that either does not exist or is completely '
+                          . 'unrelated and dissimilar'
+                       :  '  NO TAGS FOUND IN THIS STATE!!'
+            )
+    );
+
+
+    if ( @tags and $self->verbose ) {
+        $self->report([ '  %-7s %-42s    %-7s %s',
+                       'Tag ID', 'Tag Name', 'N8d ID', 'N8d Tag Name' ]);
+        foreach my $tags (@tags) {
+            my ( $tag, $n8d ) = @$tags;
+            $self->report([
+                '  %-7d %-45s %-7d %s',
+                $tag->id, $tag->name,
+                ( $n8d  ? ($n8d->id, $n8d->name) 
+                        : ('n/a', 'a non-existant tag') )
+            ]);
         }
     }
 
-    print scalar @bad_n8d
-        . " tags(s) which reference a non-existent or incorrect normalized tag.\n";
+    $self->output(
+        "$cnt tags(s) reference a non-existent or incorrect normalized tag.")
+      if @tags or ! $self->verbose;
 }
 
 sub report_no_n8d {
     my $self = shift;
-    
+    my $cnt  = my @tags = $self->tag_no_n8d;
+
     $self->report_header(
-        'False declaration of normalization'
+        'False declaration of normalization' =>
+            (
+                @tags ?   "The following $cnt tags falsely claim to"
+                        . 'be the normalized form.'
+                      : '  NO TAGS FOUND IN THIS STATE!!'
+            )
     );
-    my @no_n8d = $self->tag_no_n8d;
 
-    if ( $self->verbose ) {
-        print "\n\n";
-
-        foreach my $tag (@no_n8d) {
-            print "'"
-                . $tag->name
-                . "' is not normalized and has no reference to a normalized tag.\n";
-        }
+    if ( @tags && $self->verbose ) {
+        $self->report([ "  %-10s %s", 'Tag ID', 'Name' ]);
+        $self->report([ "  %-10d %s", $_->id, $_->name ])
+            foreach @tags;
     }
 
-    print scalar @no_n8d
-        . " false normalized form declarations by non-normalized tag(s).\n";
+    $self->output(
+        "$cnt false normalized form declarations by non-normalized tag(s).")
+      if @tags or ! $self->verbose;
 }
 
 

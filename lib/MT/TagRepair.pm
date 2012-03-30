@@ -18,7 +18,6 @@ use MT::Tag;
 use MT::ObjectTag;
 
 use base qw( Class::Accessor::Fast );
-
 __PACKAGE__->mk_accessors(qw( verbose dryrun issues ));
 
 =head1 METHODS
@@ -33,6 +32,8 @@ is ugly and arcane.
 
 =cut
 sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
+
+sub debug {}
 
 =head2 execute
 
@@ -87,9 +88,10 @@ sub output {
     my $self  = shift;
     my @input = @_;
 
-    if (@input == 1 and 'ARRAY' eq ref($_[0]) ) {
+    if ( scalar @input == 1 and 'ARRAY' eq ref($input[0]) ) {
+        @input = @{ $input[0] };
         my $msg = shift @input;
-        printf "$msg\n", map { defined($_) ? $_ : 'UNDEF' } @_;
+        printf "$msg\n", (map { defined($_) ? $_ : 'UNDEF' } @input);
     }
     else {
         print join(' ', @_)."\n";
@@ -106,7 +108,6 @@ C<_header> method.
 sub output_header {
     my $self = shift;
     $self->output( $self->_header(@_) );
-
 }
 
 =head2 report
@@ -121,6 +122,7 @@ sub report {
     $self->output(@_) if $self->verbose;
 }
 
+
 =head2 report_header
 
 This method is the verbose-flag-respecting analog to the C<output_header>
@@ -128,8 +130,11 @@ method.
 
 =cut
 sub report_header {
-    my $self = shift;
-    $self->report( $self->_header(@_) );
+    my $self    = shift;
+    my $header  = $self->_header( +shift );
+    my $subtext = shift;
+    $self->report( $header );
+    $self->report( $subtext."\n" ) if $subtext;
 }
 
 =head2 _header
@@ -141,7 +146,7 @@ methods.
 =cut
 sub _header {
     my $self = shift;
-    return ( "\n\n###### %s ######\n\n", shift() );
+    return [ "\n\n###### %s ######\n", @_ ];
 }
 
 =head2 load
@@ -183,18 +188,35 @@ sub save {
     local $MT::CallbacksEnabled = 0;
     foreach my $obj ( @objs ) {
         my $obj_type = lc($obj->class_label);
-        $self->report(
+        $self->report([
             $obj->id  ?  ( 'Saving %s ID %d', $obj_type, $obj->id )
                       :  ( 'Saving new %s %s',
                             $obj_type,
                             $obj_type eq 'tag' ? "'".$obj->name."'"
                                                : Dumper($obj->column_values) )
-        );
+        ]);
         unless ( $self->dryrun ) {
+
+            # print '$MT::DebugMode & 4 = '.($MT::DebugMode & 4)."\n";
+            $self->debug([
+                'BEFORE SAVE changed_cols: %s. %s',
+                    join(', ', keys %{ $obj->{changed_cols} }),
+                    Dumper($obj)
+            ]);
+
+            # Debugging... Ignore....
+            # local $ENV{DOD_DEBUG} = 1;
+            # local $Data::ObjectDriver::DEBUG = 1;
+            # Data::ObjectDriver->logger(sub { $self->output(@_) });
+            # local $ENV{DOD_PROFILE} = 1;
+
             $obj->save or $self->throw( save_error => $obj );
+
+            $self->debug( 'AFTER SAVE: '. Dumper($obj));
         }
     }
 }
+
 
 =head2 remove
 
@@ -209,11 +231,24 @@ sub remove {
     local $MT::CallbacksEnabled = 0;
 
     foreach my $obj ( @objs ) {
-        $self->report( 'Removing %s ID %s', lc( $obj->class_label ), $obj->id);
+        $self->report([ 'Removing %s ID %s', lc( $obj->class_label ), $obj->id]);
         unless ( $self->dryrun ) {
+            my @obj_data
+                = ( $obj->datasource, $self->dump1l( $obj->column_values() ));
+
             $obj->remove or $self->throw( remove_error => $obj );
+
+            $self->debug([ 'REMOVED %s %s', @obj_data ]);
         }
     }
+}
+
+sub dump1l {
+    my $self = shift;
+    local $Data::Dumper::Terse = 1;
+    my $out = Dumper( @_ == 1 ? @_ : \@_ );
+    $out =~ s{\s*\n+\s*}{}g;
+    $out;
 }
 
 sub throw {
@@ -294,7 +329,7 @@ sub tag_dupes {
     my @tag_groups = ();
     my %duped      = ();
     while ( my ( $count, $name ) = $iter->() ) {
-        next unless $count > 1;         # Skip groups with only 1 tag (good!) 
+        next unless $count > 1;         # Skip groups with only 1 tag (good!)
 
         # Load and iterate through all tags with current $name (case-insensitive)
         my @tags = $self->load( 'MT::Tag', { name => $name } );
@@ -371,6 +406,5 @@ sub tag_no_n8d {
 
     @no_n8d;
 }
-
 
 1;

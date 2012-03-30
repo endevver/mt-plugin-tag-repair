@@ -11,33 +11,33 @@ use MT::Log::Log4perl qw(l4mtdump); use Log::Log4perl qw( :resurrect );
 
 sub class_label { 'Repair' }
 
-sub execute {
-    my $self = shift;
-    $self->report_header( 'Starting Tag and ObjectTag repairs' );
-    $self->SUPER::execute();
-}
+# FIXME tagrepair --dryrun yields no output
 
-=head2 repair_tag_self_n8d
+sub execute { shift()->SUPER::execute() }
+
+=head2 repair_self_n8d
 
 Repair tags returned by C<tag_self_n8d()>
 
 =cut
-sub repair_tag_self_n8d {
+sub repair_self_n8d {
     my $self = shift;
-    $self->report_header('Repairing self-referential normalization');
+    my $tag_cnt = my @tags = $self->tag_self_n8d();
 
-    my @tags;
-    unless ( @tags = $self->tag_self_n8d() ) {
-        $self->report('No tags found in repair_tag_self_n8d');
-        return 0;
-    }
+    $self->report_header(
+        'Repairing self-referential normalization' =>
+            ( $tag_cnt ? "$tag_cnt tags are" : 'No tags found' )
+            . ' in this state'
+    );
+
+    return 0 unless @tags;
 
     # Cache the tag data in memory
-    $self->report(
+    $self->report([
         'Caching tag values for %d tags before removing them. ID(s): %s',
         scalar @tags,
         join(', ', map { $_->id } @tags )
-    );
+    ]);
     my @tagdata = map { $_->column_values } @tags;
 
     # Remove the self_n8d tags
@@ -81,16 +81,19 @@ object.
 
 =cut
 sub repair_bad_n8d {
-    my $self = shift;
-    $self->report_header('Repairing tags which incorrectly declare normalization');
+    my $self    = shift;
+    my $tag_cnt = my @tags = $self->tag_bad_n8d();
 
-    my @tags;
-    unless ( @tags = $self->tag_bad_n8d() ) {
-        $self->report('No tags found in repair_bad_n8d');
-        return 0;
-    }
+    $self->report_header(
+        'Repairing incorrect normalization references' =>
+            ( @tags ? "$tag_cnt tags are" : 'No tags found' )
+            . ' in this state'
+    );
+
+    return 0 unless @tags;
 
     @tags = map { $_->[0]->n8d_id(0); shift @$_ } @tags;
+
     $self->save( @tags );
 }
 
@@ -99,15 +102,17 @@ sub repair_bad_n8d {
 Repair tags returned by C<tag_no_n8d()>
 
 =cut
-sub repair_no_n8d { 
+sub repair_no_n8d {
     my $self = shift;
-    $self->report_header('Repairing duplicate tags');
+    my $tag_cnt = my @tags = $self->tag_no_n8d();
 
-    my @tags;
-    unless ( @tags = $self->tag_no_n8d() ) {
-        $self->report('No tags found in repair_no_n8d');
-        return 0;
-    }
+    $self->report_header(
+        'Repairing false normalization declarations' =>
+            ( @tags ? "$tag_cnt tags are" : 'No tags found' )
+            . ' in this state'
+    );
+
+    return 0 unless @tags;
 
     $self->save( @tags );
 }
@@ -119,14 +124,17 @@ references.
 
 =cut
 sub repair_tag_dupes {
-    my $self = shift;
-    $self->report_header('Repairing duplicate tags');
+    my $self    = shift;
+    my $tag_cnt = my @tags = $self->tag_dupes();
 
-    my @tags;
-    unless ( @tags = $self->tag_dupes() ) {
-        $self->report('No tags found in repair_tag_dupes');
-        return 0;
-    }
+    $self->report_header(
+        'Repairing duplicate tags' =>
+            ( @tags ? "$tag_cnt tags are" : 'No tags found' )
+            . ' in this state'
+    );
+
+    return 0 unless @tags;
+
     $self->repair_tag_dupe(@$_) foreach @tags;
 }
 
@@ -148,8 +156,8 @@ sub repair_tag_dupe {
 
     return unless @dupes;
 
-    $self->report('Repairing %s duplicates of tag "%s" (ID:%s)',
-                    scalar @dupes, $canon->name, $canon->id );
+    $self->report([ 'Repairing %s duplicates of tag "%s" (ID:%s)',
+                    scalar @dupes, $canon->name, $canon->id ]);
     my @dupe_tag_ids = map { $_->id } @dupes;
 
     my $load_terms = {
@@ -160,13 +168,14 @@ sub repair_tag_dupe {
                          terms      => $load_terms,
                          fatal      => 1 );
 
-    $self->report('Consolidating objecttag records for tag IDs: %s',
-                    join(', ', @dupe_tag_ids) );
+    my $indent = '    - ';
+    $self->report([ '%-6s Consolidating objecttag records for tag IDs: %s',
+                    $indent, join(', ', @dupe_tag_ids) ]);
     while ( my $obj_tag = $obj_tag_iter->() ) {
-        $self->report(
-            'Altering tag_id value for objecttag ID %s from %s to %s',
-            $obj_tag->id, $obj_tag->tag_id, $canon->id
-        );
+        $self->report([
+            '%s Altering tag_id value for objecttag ID %s from %s to %s',
+            $indent, $obj_tag->id, $obj_tag->tag_id, $canon->id
+        ]);
         $obj_tag->tag_id( $canon->id );
         $self->save( $obj_tag );
     }
@@ -179,17 +188,19 @@ sub repair_tag_dupe {
                          terms      => $load_terms,
                          fatal      => 1 );
 
-    $self->report('Redirecting tags referencing our dupe tags in their n8d_id for tag IDs: %s',
-                    join(', ', @dupe_tag_ids) );
+    $self->report([
+        '%s Redirecting tags referencing our dupe tags in their n8d_id for tag IDs: %s',
+        $indent, join(', ', @dupe_tag_ids)
+    ]);
+
     while ( my $t = $tag_iter->() ) {
-        $self->report(
-            'Altering n8d_id value for tag ID %s from %s to %s',
-            $t->id, $t->n8d_id, $canon->id
-        );
+        $self->report([
+            '%s Altering n8d_id value for tag ID %s from %s to %s',
+            $indent, $t->id, $t->n8d_id, $canon->id
+        ]);
         $t->n8d_id( $canon->id );
         $self->save( $t );
     }
-
 
     $self->remove( @dupes );
 }

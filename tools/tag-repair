@@ -42,7 +42,7 @@ sub main {
 
     no strict 'refs';
     my $options = {
-        issues => [ grep { ${\"check_$_"} } @issues ],
+        issues  => [ grep { ${\"check_$_"} } @issues ],
         verbose => $verbose,
         dryrun  => $dryrun,
     };
