@@ -9,6 +9,7 @@ use strict;
 use warnings;
 use Data::Dumper;
 use Carp qw( croak cluck confess carp );
+use Text::Indent;
 
 use MT::Log::Log4perl qw(l4mtdump); use Log::Log4perl qw( :resurrect );
 ###l4p our $logger = MT::Log::Log4perl->new();
@@ -20,24 +21,52 @@ use MT::ObjectTag;
 use base qw( Class::Accessor::Fast );
 __PACKAGE__->mk_accessors(qw( verbose dryrun issues ));
 
+use constant INDENT => ' 'x4;
+
 =head1 METHODS
 
 =cut
 
-=head2 CASE_SENSITIVE_LOAD
+=head2 start_phase
 
-Constant method which returns the arguments necessary to make MT::Object
-loads case-sensitive.  This is purely for convenience because the syntax
-is ugly and arcane.
+This method is called at the beginning of all of the major methods which
+control the core operation of the plugin and is responsible (when the
+utility is run in verbose mode) for outputting a banner header, title and
+descriptive text about the process to be undertaken.
+
+If the C<--verbose> flag is not supplied, this method is a no-op.
 
 =cut
-sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
+sub start_phase {
+    my $self    = shift;
+    my $header  = $self->_header( +shift );
+    my $subtext = shift;
+    $self->reset_indent();
+    $self->report( $header );
+    $self->report( $subtext."\n" ) if $subtext;
+    $self->indent();
+}
 
-sub debug {}
+=head2 end_phase
+
+This method is called at the end of all major mode methods. Like
+C<start_phase>, it is responsible for outputtng descriptive text, although in
+this case, it's a summary of completed actions.
+
+I<Unlike> C<start_phase>, this method's output is I<not governed> by the
+C<--verbose> flag.
+
+=cut
+sub end_phase {
+    my $self    = shift;
+    $self->output( @_ ) if @_;
+    $self->output("\n") if $self->verbose;
+    $self->reset_indent;
+}
 
 =head2 execute
 
-The following method carries out the execution of the program calling
+This method is the primary dispatcher for the program calling
 each requested method in priority order.
 
 =cut
@@ -87,14 +116,16 @@ of the C<verbose> property.
 sub output {
     my $self  = shift;
     my @input = @_;
+    my $i     = $self->indenter;
 
     if ( scalar @input == 1 and 'ARRAY' eq ref($input[0]) ) {
-        @input = @{ $input[0] };
-        my $msg = shift @input;
-        printf "$msg\n", (map { defined($_) ? $_ : 'UNDEF' } @input);
+
+        my $input = shift @input;
+        print $i->indent( sprintf( shift @$input, @$input ) );
     }
     else {
-        print join(' ', @_)."\n";
+        confess( 'Not defined $_[0]' ) unless defined($_[0]);
+        @_ and print $i->indent( join(' ', @_) );
     }
 }
 
@@ -134,7 +165,7 @@ sub report_header {
     my $header  = $self->_header( +shift );
     my $subtext = shift;
     $self->report( $header );
-    $self->report( $subtext."\n" ) if $subtext;
+    $self->report( $subtext ) if $subtext;
 }
 
 =head2 _header
@@ -146,14 +177,29 @@ methods.
 =cut
 sub _header {
     my $self = shift;
-    return [ "\n\n###### %s ######\n", @_ ];
+    return [ "###### %s ######\n", @_ ];
 }
+
+sub indenter  {
+    my $self = shift;
+    unless ( $self->{indent} ) {
+        my $i = $self->{indent} = Text::Indent->new;
+        $i->spaces( length(INDENT) );
+        $i->spacechar(' ');
+        $i->add_newline(1);
+        $i->level(0);
+    }
+    $self->{indent};
+}
+sub indent       { $_[0]->indenter->increase( $_[1] ) }
+sub outdent      { $_[0]->indenter->decrease( $_[1] ) }
+sub reset_indent { $_[0]->indenter->reset()           }
 
 =head2 load
 
-This load method centralizes all of the load actions undertaken by the class
-and, like the C<save> and C<remove> provides consistency and predictability
-for the most used functions.
+This load method centralizes all of the actions undertaken by the class
+in the course of executing search queries. Like the C<save> and C<remove>
+this mainly ensures consistency and predictability for the most used functions.
 
 =cut
 sub load {
@@ -173,74 +219,6 @@ sub load {
         $self->throw( load_error => $class, terms => $terms, fatal => 1 );
     }
     return wantarray ? () : undef;
-}
-
-=head2 save
-
-This save method takes one or more MT::Object subclass instances and saves
-them with MT callbacks disabled.  On error, the method dies with an
-informative error message.
-
-=cut
-sub save {
-    my $self = shift;
-    my @objs = @_;
-    local $MT::CallbacksEnabled = 0;
-    foreach my $obj ( @objs ) {
-        my $obj_type = lc($obj->class_label);
-        $self->report([
-            $obj->id  ?  ( 'Saving %s ID %d', $obj_type, $obj->id )
-                      :  ( 'Saving new %s %s',
-                            $obj_type,
-                            $obj_type eq 'tag' ? "'".$obj->name."'"
-                                               : Dumper($obj->column_values) )
-        ]);
-        unless ( $self->dryrun ) {
-
-            # print '$MT::DebugMode & 4 = '.($MT::DebugMode & 4)."\n";
-            $self->debug([
-                'BEFORE SAVE changed_cols: %s. %s',
-                    join(', ', keys %{ $obj->{changed_cols} }),
-                    Dumper($obj)
-            ]);
-
-            # Debugging... Ignore....
-            # local $ENV{DOD_DEBUG} = 1;
-            # local $Data::ObjectDriver::DEBUG = 1;
-            # Data::ObjectDriver->logger(sub { $self->output(@_) });
-            # local $ENV{DOD_PROFILE} = 1;
-
-            $obj->save or $self->throw( save_error => $obj );
-
-            $self->debug( 'AFTER SAVE: '. Dumper($obj));
-        }
-    }
-}
-
-
-=head2 remove
-
-This remove method takes one or more MT::Object subclass instances and removes
-them with MT callbacks disabled.  On error, the method dies with an
-informative error message.
-
-=cut
-sub remove {
-    my $self = shift;
-    my @objs = @_;
-    local $MT::CallbacksEnabled = 0;
-
-    foreach my $obj ( @objs ) {
-        $self->report([ 'Removing %s ID %s', lc( $obj->class_label ), $obj->id]);
-        unless ( $self->dryrun ) {
-            my @obj_data
-                = ( $obj->datasource, $self->dump1l( $obj->column_values() ));
-
-            $obj->remove or $self->throw( remove_error => $obj );
-
-            $self->debug([ 'REMOVED %s %s', @obj_data ]);
-        }
-    }
 }
 
 sub dump1l {
@@ -293,6 +271,26 @@ sub errstr {
     return shift()->errstr || 'UNKNOWN ERROR';
 }
 
+=head2 tag_desc
+
+=cut
+sub tag_desc {
+    my $self = shift;
+    my $tag  = shift;
+    return $tag->id ? sprintf( 'tag "%s" (ID:%d)', $tag->name, $tag->id )
+                    : sprintf( 'new tag "%s"',     $tag->name           );
+}
+
+=head2 CASE_SENSITIVE_LOAD
+
+This constant method returns the arguments required to make database
+searches (MT'::Object's `load` and `load_iter`) B<case-insensitive>.
+
+=cut
+sub CASE_SENSITIVE_LOAD { binary => { name => 1 } };
+
+sub debug {}
+
 
 ###################### TAG SEARCH METHODS ######################
 ###################### TAG SEARCH METHODS ######################
@@ -304,7 +302,7 @@ This method returns the keywords representing each of the issues the repair
 and report classes deal with, in the order that they need to be processed.
 
 =cut
-sub issue_priority { qw( tag_dupes self_n8d bad_n8d no_n8d ) }
+sub issue_priority { qw( tag_dupes bad_n8d no_n8d self_n8d ) }
 
 =head2 tag_dupes
 

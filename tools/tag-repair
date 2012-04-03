@@ -60,6 +60,8 @@ sub main {
     my $process = $cmd_class->new( $options );
     
     $process->execute();
+    
+    $process->output(["%s %s %s\n\n\n", '-'x30, 'END OF TAGREPAIR', '-'x30])
 }
 
 __PACKAGE__->main() unless caller;
